@@ -1,0 +1,16 @@
+#pragma once
+
+#ifndef YK_RAYTRACING_CONFIG_H
+#define YK_RAYTRACING_CONFIG_H
+
+#ifndef YK_ENABLE_CONSTEXPR
+#define YK_ENABLE_CONSTEXPR 0
+#endif  // !YK_ENABLE_CONSTEXPR
+
+#if YK_ENABLE_CONSTEXPR
+#define YK_CONSTEXPR constexpr
+#else
+#define YK_CONSTEXPR
+#endif  // YK_ENABLE_CONSTEXPR
+
+#endif  // !YK_RAYTRACING_CONFIG_H
