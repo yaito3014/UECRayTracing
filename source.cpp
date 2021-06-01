@@ -103,6 +103,7 @@ void print_ppm(const image_t& image) {
 }  // namespace yk
 
 int main(int argc, char* argv[]) {
+
   // handle command line args
   namespace po = boost::program_options;
 
