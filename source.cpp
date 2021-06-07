@@ -29,14 +29,22 @@
 #include "yk/sphere.hpp"
 #include "yk/vec3.hpp"
 
+#ifndef YK_IMAGE_WIDTH
+#define YK_IMAGE_WIDTH 400
+#endif  // !YK_IMAGE_WIDTH
+
+#ifndef YK_SPP
+#define YK_SPP 100
+#endif  // !YK_SPP
+
 namespace yk {
 
 namespace constants {
 
 constexpr double aspect_ratio = 16.0 / 9.0;
-constexpr size_t image_width = 1980;
+constexpr size_t image_width = YK_IMAGE_WIDTH;
 constexpr size_t image_height = static_cast<size_t>(image_width / aspect_ratio);
-constexpr size_t samples_per_pixel = 100;
+constexpr size_t samples_per_pixel = YK_SPP;
 
 }  // namespace constants
 
