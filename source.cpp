@@ -11,6 +11,11 @@
 #include <string>
 #include <tuple>
 
+#if YK_ENABLE_PARALLEL
+#include <execution>
+#include <mutex>
+#endif  // YK_ENABLE_PARALLEL
+
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "thirdparty/stb_image_write.h"
 #include "yk/camera.hpp"
@@ -29,7 +34,7 @@ namespace yk {
 namespace constants {
 
 constexpr double aspect_ratio = 16.0 / 9.0;
-constexpr size_t image_width = 720;
+constexpr size_t image_width = 1980;
 constexpr size_t image_height = static_cast<size_t>(image_width / aspect_ratio);
 constexpr size_t samples_per_pixel = 100;
 
@@ -53,6 +58,16 @@ constexpr color3d ray_color(const ray<T>& r, const H& world) {
            2;
   auto t = (r.direction.normalized().y + 1.0) / 2;
   return (1.0 - t) * color3d(1.0, 1.0, 1.0) + t * color3d(0.5, 0.7, 1.0);
+}
+
+template <class R, class F>
+YK_CONSTEXPR auto for_each(R r, F&& f) {
+  auto common = r | std::views::common;
+  return std::for_each(
+#if YK_ENABLE_PARALLEL
+      std::execution::par,
+#endif  // YK_ENABLE_PARALLEL
+      std::ranges::begin(common), std::ranges::end(common), std::forward<F>(f));
 }
 
 size_t verbose = 0;
@@ -82,22 +97,38 @@ constexpr image_t render() {
     if (!std::is_constant_evaluated() && verbose)
       std::cout << "rendering row : " << (h + 1) << " / "
                 << constants::image_height << std::endl;
-    for (size_t w : std::views::iota(0u, constants::image_width)) {
+    for_each(std::views::iota(0u, constants::image_width), [&, h](size_t w) {
       color3<T> pixel_color(0, 0, 0);
 
-      for (size_t s : std::views::iota(0u, constants::samples_per_pixel)) {
-        if (!std::is_constant_evaluated() && verbose > 1)
-          std::cout << "sample : " << s << " / " << constants::samples_per_pixel
-                    << std::endl;
-        auto u = (w + dist(gen)) / (constants::image_width - 1.0);
-        auto v = (constants::image_height - h - 1 + dist(gen)) /
-                 (constants::image_height - 1.0);
-        auto r = cam.get_ray(u, v);
-        pixel_color += ray_color(r, world);
-      }
+#if YK_ENABLE_PARALLEL
+      std::mutex mtx;
+#endif  // YK_ENABLE_PARALLEL
+
+      for_each(std::views::iota(0u, constants::samples_per_pixel),
+               [&, h, w](size_t s) {
+                 if (!std::is_constant_evaluated() && verbose > 1)
+                   std::cout << "[pixel (" << h << ", " << w << ")] "
+                             << "sample : " << s << " / "
+                             << constants::samples_per_pixel << std::endl;
+#if YK_ENABLE_PARALLEL
+                 mtx.lock();
+#endif  // YK_ENABLE_PARALLEL
+                 auto u = (w + dist(gen)) / (constants::image_width - 1.0);
+                 auto v = (constants::image_height - h - 1 + dist(gen)) /
+                          (constants::image_height - 1.0);
+#if YK_ENABLE_PARALLEL
+                 mtx.unlock();
+#endif  // YK_ENABLE_PARALLEL
+                 yk::color3d color = ray_color(cam.get_ray(u, v), world);
+#if YK_ENABLE_PARALLEL
+                 std::lock_guard<std::mutex> lg(mtx);
+#endif  // YK_ENABLE_PARALLEL
+                 pixel_color += color;
+               });
+      // parallel access to different element in the same vector is safe
       image[h * yk::constants::image_width + w] =
           to_color3b(pixel_color, constants::samples_per_pixel);
-    }
+    });
   }
 
   if (!std::is_constant_evaluated())
