@@ -6,17 +6,20 @@
 #include <cstdlib>
 #include <iostream>
 #include <limits>
+#include <random>
 #include <ranges>
 #include <string>
 #include <tuple>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "thirdparty/stb_image_write.h"
+#include "yk/camera.hpp"
 #include "yk/color.hpp"
 #include "yk/config.hpp"
 #include "yk/hittable.hpp"
 #include "yk/hittable_list.hpp"
 #include "yk/math.hpp"
+#include "yk/random.hpp"
 #include "yk/ray.hpp"
 #include "yk/sphere.hpp"
 #include "yk/vec3.hpp"
@@ -26,8 +29,9 @@ namespace yk {
 namespace constants {
 
 constexpr double aspect_ratio = 16.0 / 9.0;
-constexpr size_t image_width = 400;
+constexpr size_t image_width = 720;
 constexpr size_t image_height = static_cast<size_t>(image_width / aspect_ratio);
+constexpr size_t samples_per_pixel = 100;
 
 }  // namespace constants
 
@@ -35,8 +39,9 @@ using image_t =
     std::array<color3b, constants::image_width * constants::image_height>;
 
 template <std::floating_point T>
-constexpr color3b to_color3b(const color3<T>& from) {
-  return (from * 255.999).template to<uint8_t>();
+constexpr color3b to_color3b(const color3<T>& from, size_t samples_per_pixel) {
+  return ((from / samples_per_pixel).clamped(0.0, 0.999) * 256)
+      .template to<uint8_t>();
 }
 
 template <std::floating_point T, concepts::hittable<T> H>
@@ -50,20 +55,12 @@ constexpr color3d ray_color(const ray<T>& r, const H& world) {
   return (1.0 - t) * color3d(1.0, 1.0, 1.0) + t * color3d(0.5, 0.7, 1.0);
 }
 
-constexpr auto viewport_height = 2.0;
-constexpr auto viewport_width = viewport_height * constants::aspect_ratio;
-constexpr auto focal_length = 1.0;
-
-constexpr auto origin = pos3d(0, 0, 0);
-constexpr auto horizontal = vec3d(viewport_width, 0, 0);
-constexpr auto vertical = vec3d(0, viewport_height, 0);
-constexpr auto lower_left_corner =
-    origin - horizontal / 2 - vertical / 2 - vec3d(0, 0, focal_length);
-
-bool verbose = false;
+size_t verbose = 0;
 
 template <concepts::arithmetic T = double>
 constexpr image_t render() {
+  camera<T> cam;
+
   auto world = hittable_list<T>{}
                    .add(sphere<T>(pos3<T>(0, 0, -1), 0.5))
                    .add(sphere<T>(pos3<T>(0, -100.5, -1), 100));
@@ -71,18 +68,35 @@ constexpr image_t render() {
   if (!std::is_constant_evaluated()) std::cout << "rendering..." << std::endl;
 
   image_t image = {};
+
+  constexpr std::string_view time = __TIME__;
+  constexpr uint32_t seed =
+      std::is_constant_evaluated()
+          ? std::accumulate(time.begin(), time.end(), size_t(0))
+          : std::random_device{}();
+
+  xor128 gen(seed);
+  uniform_real_distribution<T> dist(0.0, 1.0);
+
   for (size_t h : std::views::iota(0u, constants::image_height)) {
     if (!std::is_constant_evaluated() && verbose)
       std::cout << "rendering row : " << (h + 1) << " / "
                 << constants::image_height << std::endl;
     for (size_t w : std::views::iota(0u, constants::image_width)) {
-      auto u = w / (constants::image_width - 1.0);
-      auto v =
-          (constants::image_height - h - 1) / (constants::image_height - 1.0);
+      color3<T> pixel_color(0, 0, 0);
+
+      for (size_t s : std::views::iota(0u, constants::samples_per_pixel)) {
+        if (!std::is_constant_evaluated() && verbose > 1)
+          std::cout << "sample : " << s << " / " << constants::samples_per_pixel
+                    << std::endl;
+        auto u = (w + dist(gen)) / (constants::image_width - 1.0);
+        auto v = (constants::image_height - h - 1 + dist(gen)) /
+                 (constants::image_height - 1.0);
+        auto r = cam.get_ray(u, v);
+        pixel_color += ray_color(r, world);
+      }
       image[h * yk::constants::image_width + w] =
-          to_color3b(ray_color(ray(origin, lower_left_corner + u * horizontal +
-                                               v * vertical - origin),
-                               world));
+          to_color3b(pixel_color, constants::samples_per_pixel);
     }
   }
 
@@ -103,7 +117,6 @@ void print_ppm(const image_t& image) {
 }  // namespace yk
 
 int main(int argc, char* argv[]) {
-
   // handle command line args
   namespace po = boost::program_options;
 
@@ -112,7 +125,8 @@ int main(int argc, char* argv[]) {
 
   po::options_description desc("Available options");
   desc.add_options()("help,h", " : help message")(
-      "output-file,o", po::value<std::string>(), " : specify output filename")("verbose,v"," : verbose");
+      "output-file,o", po::value<std::string>(),
+      " : specify output filename")("verbose,v", " : verbose");
 
   po::variables_map vm;
   po::store(
@@ -125,7 +139,7 @@ int main(int argc, char* argv[]) {
     return 0;
   }
 
-  yk::verbose = vm.contains("verbose");
+  yk::verbose = vm.count("verbose");
 
   std::string filename;
   if (vm.contains("output-file"))

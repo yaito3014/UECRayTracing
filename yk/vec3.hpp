@@ -7,6 +7,7 @@
 
 #include "concepts.hpp"
 #include "math.hpp"
+#include "random.hpp"
 
 namespace yk {
 

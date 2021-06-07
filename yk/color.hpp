@@ -3,6 +3,7 @@
 #ifndef YK_RAYTRACING_COLOR_H
 #define YK_RAYTRACING_COLOR_H
 
+#include <algorithm>
 #include <cstdint>
 
 #include "concepts.hpp"
@@ -19,6 +20,21 @@ struct color3 {
         .r = static_cast<U>(r),
         .g = static_cast<U>(g),
         .b = static_cast<U>(b),
+    };
+  }
+
+  constexpr color3 &clamp(T min, T max) {
+    r = std::clamp(r, min, max);
+    g = std::clamp(g, min, max);
+    b = std::clamp(b, min, max);
+    return *this;
+  }
+
+  constexpr color3 clamped(T min, T max) const {
+    return {
+        .r = std::clamp(r, min, max),
+        .g = std::clamp(g, min, max),
+        .b = std::clamp(b, min, max),
     };
   }
 

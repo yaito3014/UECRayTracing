@@ -5,7 +5,6 @@
 
 #include <cstdint>
 #include <limits>
-#include <random>
 
 #include "concepts.hpp"
 
@@ -17,7 +16,10 @@ struct xor128 {
   uint32_t z = 521288629;
   uint32_t w = 88675123;
 
-  constexpr xor128(uint32_t seed) : w(seed) {}
+  constexpr static uint32_t max = std::numeric_limits<uint32_t>::max();
+  constexpr static uint32_t min = std::numeric_limits<uint32_t>::min();
+
+  constexpr xor128(uint32_t seed = 88675123) : w(seed) {}
 
   constexpr uint32_t operator()() {
     uint32_t t = x ^ (x << 11);
@@ -38,9 +40,8 @@ struct uniform_real_distribution {
   constexpr T operator()(Engine& e) {
     using From = decltype(e());
     auto r = e();
-    return (r - std::numeric_limits<From>::min()) *
-        (std::numeric_limits<T>::max() - std::numeric_limits<T>::min()) /
-        (std::numeric_limits<From>::max() - std::numeric_limits<From>::min());
+    return (r - std::numeric_limits<From>::min()) * (max - min) /
+           (Engine::max - Engine::min);
   }
 };
 
