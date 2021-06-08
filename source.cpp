@@ -1,5 +1,7 @@
+#include <getopt.h>
+#include <unistd.h>
+
 #include <array>
-#include <boost/program_options.hpp>
 #include <compare>
 #include <concepts>
 #include <cstdint>
@@ -57,19 +59,26 @@ constexpr color3b to_color3b(const color3<T>& from, size_t samples_per_pixel) {
       .template to<uint8_t>();
 }
 
-template <std::floating_point T, concepts::hittable<T> H>
-constexpr color3d ray_color(const ray<T>& r, const H& world) {
+template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
+constexpr vec3<T> random_vec_in_unit_sphere(Gen& gen) {
+  return vec3<double>::random(gen, -1, 1).normalize() *
+         uniform_real_distribution<T>(0.01, 0.99)(gen);
+}
+
+template <std::floating_point T, concepts::hittable<T> H,
+          std::uniform_random_bit_generator Gen>
+constexpr color3d ray_color(const ray<T>& r, const H& world, Gen& gen) {
   hit_record<T> rec;
-  if (world.hit(r, 0, std::numeric_limits<T>::infinity(), rec))
-    return (color3d{.r = rec.normal.x, .g = rec.normal.y, .b = rec.normal.z} +
-            color3d(1, 1, 1)) /
-           2;
+  if (world.hit(r, 0, std::numeric_limits<T>::infinity(), rec)) {
+    pos3<T> target = rec.p + rec.normal + random_vec_in_unit_sphere<T>(gen);
+    return ray_color(ray<T>(rec.p, target - rec.p), world, gen) / 2;
+  }
   auto t = (r.direction.normalized().y + 1.0) / 2;
   return (1.0 - t) * color3d(1.0, 1.0, 1.0) + t * color3d(0.5, 0.7, 1.0);
 }
 
 template <class R, class F>
-YK_CONSTEXPR auto for_each(R r, F&& f) {
+constexpr auto for_each(R r, F&& f) {
   auto common = r | std::views::common;
   return std::for_each(
 #if YK_ENABLE_PARALLEL
@@ -94,11 +103,14 @@ constexpr image_t render() {
 
   constexpr std::string_view time = __TIME__;
   constexpr uint32_t seed =
-      std::is_constant_evaluated()
-          ? std::accumulate(time.begin(), time.end(), size_t(0))
-          : std::random_device{}();
+      std::accumulate(time.begin(), time.end(), size_t(0));
 
-  xor128 gen(seed);
+#if YK_ENABLE_PARALLEL
+  thread_safe_random_generator<xor128>
+#else
+  xor128
+#endif  // YK_ENABLE_PARALLEL
+      gen(std::is_constant_evaluated() ? seed : std::random_device{}());
   uniform_real_distribution<T> dist(0.0, 1.0);
 
   for (size_t h : std::views::iota(0u, constants::image_height)) {
@@ -118,20 +130,14 @@ constexpr image_t render() {
                    std::cout << "[pixel (" << h << ", " << w << ")] "
                              << "sample : " << s << " / "
                              << constants::samples_per_pixel << std::endl;
-#if YK_ENABLE_PARALLEL
-                 mtx.lock();
-#endif  // YK_ENABLE_PARALLEL
                  auto u = (w + dist(gen)) / (constants::image_width - 1.0);
                  auto v = (constants::image_height - h - 1 + dist(gen)) /
                           (constants::image_height - 1.0);
+                 yk::color3d color = ray_color(cam.get_ray(u, v), world, gen);
 #if YK_ENABLE_PARALLEL
-                 mtx.unlock();
+                 std::lock_guard<std::mutex>{mtx},
 #endif  // YK_ENABLE_PARALLEL
-                 yk::color3d color = ray_color(cam.get_ray(u, v), world);
-#if YK_ENABLE_PARALLEL
-                 std::lock_guard<std::mutex> lg(mtx);
-#endif  // YK_ENABLE_PARALLEL
-                 pixel_color += color;
+                     pixel_color += color;
                });
       // parallel access to different element in the same vector is safe
       image[h * yk::constants::image_width + w] =
@@ -157,36 +163,30 @@ void print_ppm(const image_t& image) {
 
 int main(int argc, char* argv[]) {
   // handle command line args
-  namespace po = boost::program_options;
-
-  po::positional_options_description p;
-  p.add("output-file", -1);
-
-  po::options_description desc("Available options");
-  desc.add_options()("help,h", " : help message")(
-      "output-file,o", po::value<std::string>(),
-      " : specify output filename")("verbose,v", " : verbose");
-
-  po::variables_map vm;
-  po::store(
-      po::command_line_parser(argc, argv).options(desc).positional(p).run(),
-      vm);
-  po::notify(vm);
-
-  if (vm.contains("help")) {
-    desc.print(std::cout);
-    return 0;
-  }
-
-  yk::verbose = vm.count("verbose");
 
   std::string filename;
-  if (vm.contains("output-file"))
-    filename = vm["output-file"].as<std::string>();
-  else {
-    std::cout << "filename required" << std::endl;
-    desc.print(std::cout);
-    std::exit(EXIT_FAILURE);
+  std::vector<option> options = {
+      {.name = "help", .val = 'h'},
+      {.name = "verbose", .val = 'v'},
+      {.name = "output", .has_arg = required_argument, .val = 'o'}};
+  options.push_back({});  // options should be zero terminated;
+  switch (getopt_long(argc, argv, ":hvo:", options.data(), NULL)) {
+    case 'h':
+      std::cout << "available options : " << '\n'
+                << "-h, --help          : help message" << '\n'
+                << "-v, --verbose       : verbose" << '\n'
+                << "-o, --output[=file] : filename to output" << std::endl;
+      break;
+    case 'v':
+      ++yk::verbose;
+      break;
+    case 'o':
+      filename = optarg;
+      break;
+    case -1:
+      std::cerr << "unknown option : " << char(optopt) << std::endl;
+      exit(EXIT_FAILURE);
+      break;
   }
 
   // rendering

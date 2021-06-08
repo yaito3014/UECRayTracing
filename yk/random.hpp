@@ -5,6 +5,9 @@
 
 #include <cstdint>
 #include <limits>
+#include <mutex>
+#include <random>
+#include <utility>
 
 #include "concepts.hpp"
 
@@ -16,10 +19,15 @@ struct xor128 {
   uint32_t z = 521288629;
   uint32_t w = 88675123;
 
-  constexpr static uint32_t max = std::numeric_limits<uint32_t>::max();
-  constexpr static uint32_t min = std::numeric_limits<uint32_t>::min();
+  using result_type = uint32_t;
+  constexpr static result_type min() {
+    return std::numeric_limits<uint32_t>::min();
+  }
+  constexpr static result_type max() {
+    return std::numeric_limits<uint32_t>::max();
+  }
 
-  constexpr xor128(uint32_t seed = 88675123) : w(seed) {}
+  constexpr xor128(uint32_t seed) : w(88675123 ^ seed) {}
 
   constexpr uint32_t operator()() {
     uint32_t t = x ^ (x << 11);
@@ -30,18 +38,35 @@ struct xor128 {
   }
 };
 
+template <std::uniform_random_bit_generator Gen>
+struct thread_safe_random_generator {
+  std::mutex mtx;
+  Gen gen;
+
+  thread_safe_random_generator(const Gen& g) : gen(g) {}
+  thread_safe_random_generator(Gen&& g) : gen(std::move(g)) {}
+
+  template <class T>
+  thread_safe_random_generator(T seed) : gen(seed) {}
+
+  using result_type = typename Gen::result_type;
+  constexpr static result_type min() { return Gen::min(); }
+  constexpr static result_type max() { return Gen::max(); }
+
+  result_type operator()() { return std::lock_guard(mtx), gen(); }
+};
+
 template <concepts::arithmetic T>
 struct uniform_real_distribution {
   T min;
   T max;
   constexpr uniform_real_distribution(T min_, T max_) : min(min_), max(max_) {}
 
-  template <class Engine>
-  constexpr T operator()(Engine& e) {
-    using From = decltype(e());
-    auto r = e();
-    return (r - std::numeric_limits<From>::min()) * (max - min) /
-           (Engine::max - Engine::min);
+  template <std::uniform_random_bit_generator G>
+  constexpr T operator()(G& gen) {
+    auto r = gen();
+    return (r - std::numeric_limits<typename G::result_type>::min()) *
+           (max - min) / (G::max() - G::min());
   }
 };
 

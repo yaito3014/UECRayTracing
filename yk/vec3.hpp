@@ -4,6 +4,7 @@
 #define YK_RAYTRACING_VEC3_H
 
 #include <type_traits>
+#include <random>
 
 #include "concepts.hpp"
 #include "math.hpp"
@@ -75,6 +76,16 @@ struct vec3 {
 
   constexpr vec3 &normalize() { return *this /= length(); }
   constexpr vec3 normalized() const { return *this / length(); }
+
+  template <std::uniform_random_bit_generator Gen>
+  constexpr static vec3 random(Gen& gen, T min, T max) {
+    uniform_real_distribution<T> dist(min, max);
+    return {
+      .x = dist(gen),
+      .y = dist(gen),
+      .z = dist(gen),
+    };
+  }
 };
 
 template <concepts::arithmetic T, concepts::arithmetic U>

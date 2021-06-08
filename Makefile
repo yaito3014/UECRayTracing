@@ -1,6 +1,5 @@
 CXX = g++
 CXXFLAGS += -std=c++20
-LDFLAGS += -lboost_program_options
 COMMON = $(CXX) $(CXXFLAGS) source.cpp $(LDFLAGS)
 
 runtime: raytrace
