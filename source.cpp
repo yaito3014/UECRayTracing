@@ -1,10 +1,14 @@
 #include <array>
+#include <cmath>
 #include <compare>
 #include <concepts>
 #include <cstdint>
 #include <cstdlib>
+#include <functional>
+#include <iomanip>
 #include <iostream>
 #include <limits>
+#include <numeric>
 #include <random>
 #include <ranges>
 #include <string>
@@ -12,13 +16,13 @@
 
 #if YK_ENABLE_PARALLEL
 #include <execution>
-#include <mutex>
 #endif  // YK_ENABLE_PARALLEL
 
-#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "thirdparty/cxxopts.hpp"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "thirdparty/stb_image_write.h"
 #include "yk/camera.hpp"
+#include "yk/cartesian_product.hpp"
 #include "yk/color.hpp"
 #include "yk/config.hpp"
 #include "yk/hittable.hpp"
@@ -29,6 +33,12 @@
 #include "yk/sphere.hpp"
 #include "yk/vec3.hpp"
 
+#if YK_ENABLE_PARALLEL
+#define YK_EXEC_PAR std::execution::par,
+#else
+#define YK_EXEC_PAR
+#endif  // YK_ENABLE_PARALLEL
+
 #ifndef YK_IMAGE_WIDTH
 #define YK_IMAGE_WIDTH 400
 #endif  // !YK_IMAGE_WIDTH
@@ -37,15 +47,20 @@
 #define YK_SPP 100
 #endif  // !YK_SPP
 
+#ifndef YK_MAX_DEPTH
+#define YK_MAX_DEPTH 50
+#endif  // !YK_MAX_DEPTH
+
 namespace yk {
 
 namespace constants {
 
 constexpr double aspect_ratio = 16.0 / 9.0;
-constexpr size_t image_width = YK_IMAGE_WIDTH;
-constexpr size_t image_height = static_cast<size_t>(image_width / aspect_ratio);
-constexpr size_t samples_per_pixel = YK_SPP;
-constexpr unsigned int max_depth = 50;
+constexpr std::uint32_t image_width = YK_IMAGE_WIDTH;
+constexpr std::uint32_t image_height =
+    static_cast<std::uint32_t>(image_width / aspect_ratio);
+constexpr std::uint32_t samples_per_pixel = YK_SPP;
+constexpr std::uint32_t max_depth = YK_MAX_DEPTH;
 
 }  // namespace constants
 
@@ -53,7 +68,8 @@ using image_t =
     std::array<color3b, constants::image_width * constants::image_height>;
 
 template <std::floating_point T>
-constexpr color3b to_color3b(const color3<T>& from, size_t samples_per_pixel) {
+constexpr color3b to_color3b(const color3<T>& from,
+                             std::uint32_t samples_per_pixel) {
   auto [r, g, b] = from / samples_per_pixel;
   color3d color = {
       .r = sqrt(r),
@@ -83,74 +99,79 @@ constexpr color3d ray_color(const ray<T>& r, const H& world, unsigned int depth,
   return (1.0 - t) * color3d(1.0, 1.0, 1.0) + t * color3d(0.5, 0.7, 1.0);
 }
 
-template <class R, class F>
-constexpr auto for_each(R r, F&& f) {
-  auto common = r | std::views::common;
-  return std::for_each(
-#if YK_ENABLE_PARALLEL
-      std::execution::par,
-#endif  // YK_ENABLE_PARALLEL
-      std::ranges::begin(common), std::ranges::end(common), std::forward<F>(f));
+template <std::ranges::input_range R, std::copy_constructible F>
+constexpr auto for_each(R&& range, F func) {
+  return std::for_each(YK_EXEC_PAR std::ranges::begin(range),
+                       std::ranges::end(range), func);
 }
 
-size_t verbose = 0;
+template <std::ranges::input_range R, class T, std::copy_constructible BinOp,
+          std::invocable<std::ranges::range_value_t<R>> UnaryOp>
+constexpr T transform_reduce(R&& r, T init, BinOp bin_op, UnaryOp unary_op) {
+  return std::transform_reduce(YK_EXEC_PAR std::ranges::begin(r),
+                               std::ranges::end(r), init, bin_op, unary_op);
+}
+
+std::uint32_t verbose = 0;
 
 template <concepts::arithmetic T = double>
 constexpr image_t render() {
-  camera<T> cam;
+  const camera<T> cam;
 
-  auto world = hittable_list<T>{}
-                   .add(sphere<T>(pos3<T>(0, 0, -1), 0.5))
-                   .add(sphere<T>(pos3<T>(0, -100.5, -1), 100));
+  const auto world = hittable_list<T>{}
+                         .add(sphere<T>(pos3<T>(0, 0, -1), 0.5))
+                         .add(sphere<T>(pos3<T>(0, -100.5, -1), 100));
 
   if (!std::is_constant_evaluated()) std::cout << "rendering..." << std::endl;
 
   image_t image = {};
 
   constexpr std::string_view time = __TIME__;
-  constexpr uint32_t seed =
-      std::accumulate(time.begin(), time.end(), uint32_t(0));
+  constexpr std::uint32_t constexpr_seed =
+      std::accumulate(time.begin(), time.end(), std::uint32_t(0));
 
-#if YK_ENABLE_PARALLEL
-  thread_safe_random_generator<xor128>
-#else
-  xor128
-#endif  // YK_ENABLE_PARALLEL
-      gen(std::is_constant_evaluated() ? seed : std::random_device{}());
-  uniform_real_distribution<T> dist(0.0, 1.0);
+  for_each(
+      views::cartesian_product(std::views::iota(0u, constants::image_height),
+                               std::views::iota(0u, constants::image_width)),
+      [&](auto hw) {
+        const auto& [h, w] = hw;
 
-  for (size_t h : std::views::iota(0u, constants::image_height)) {
-    if (!std::is_constant_evaluated() && verbose)
-      std::cout << "rendering row : " << (h + 1) << " / "
-                << constants::image_height << std::endl;
-    for_each(std::views::iota(0u, constants::image_width), [&, h](size_t w) {
-      color3<T> pixel_color(0, 0, 0);
+        color3d pixel_color = transform_reduce(
+            std::views::iota(0u, constants::samples_per_pixel),
+            color3d(0, 0, 0), std::plus{}, [&](auto s) {
+              if (!std::is_constant_evaluated() && verbose > 1)
+                std::cout
+                    << "(row,col,sam) : " << '('
+                    << std::setw(
+                           std::ceil(std::log10(constants::image_height)) - 1)
+                    << h << ','
+                    << std::setw(std::ceil(std::log10(constants::image_width)) -
+                                 1)
+                    << w << ','
+                    << std::setw(
+                           std::ceil(std::log10(constants::samples_per_pixel)) -
+                           1)
+                    << s << ')' << std::endl;
 
-#if YK_ENABLE_PARALLEL
-      std::mutex mtx;
-#endif  // YK_ENABLE_PARALLEL
+              xor128 gen(std::is_constant_evaluated()
+                             ? constexpr_seed +
+                                   (h * constants::image_width + w) *
+                                       constants::samples_per_pixel +
+                                   s
+                             : std::random_device{}());
+              uniform_real_distribution<T> dist(0.0, 1.0);
 
-      for_each(std::views::iota(0u, constants::samples_per_pixel),
-               [&, h, w](size_t s) {
-                 if (!std::is_constant_evaluated() && verbose > 1)
-                   std::cout << "[pixel (" << h << ", " << w << ")] "
-                             << "sample : " << s << " / "
-                             << constants::samples_per_pixel << std::endl;
-                 auto u = (w + dist(gen)) / (constants::image_width - 1.0);
-                 auto v = (constants::image_height - h - 1 + dist(gen)) /
-                          (constants::image_height - 1.0);
-                 yk::color3d color = ray_color(cam.get_ray(u, v), world,
-                                               constants::max_depth, gen);
-#if YK_ENABLE_PARALLEL
-                 std::lock_guard<std::mutex>{mtx},
-#endif  // YK_ENABLE_PARALLEL
-                     pixel_color += color;
-               });
-      // parallel access to different element in the same vector is safe
-      image[h * yk::constants::image_width + w] =
-          to_color3b(pixel_color, constants::samples_per_pixel);
-    });
-  }
+              auto u = (w + dist(gen)) / (constants::image_width - 1.0);
+              auto v = (constants::image_height - h - 1 + dist(gen)) /
+                       (constants::image_height - 1.0);
+              return ray_color(cam.get_ray(u, v), world, constants::max_depth,
+                               gen);
+            });
+
+        // parallel access to different element in the same vector is safe
+        image[h * yk::constants::image_width + w] =
+            to_color3b(pixel_color, constants::samples_per_pixel);
+      });
 
   if (!std::is_constant_evaluated())
     std::cout << "rendering finished" << std::endl;
@@ -173,14 +194,15 @@ int main(int argc, char* argv[]) {
 
   std::string filename;
   cxxopts::Options options("raytrace", "raytracing program");
-  options.add_options()("h,help", "print usage")(
-      "o,output", "filename of output",
-      cxxopts::value<
-          std::string>())("v,verbose",
-                          "verbose output")("verbose-level",
-                                            "set verbose level",
-                                            cxxopts::value<
-                                                std::vector<size_t>>());
+
+  // clang-format off
+  options.add_options()
+      ("h,help"         , "print usage")
+      ("v,verbose"      , "verbose output")
+      ("o,output"       , "filename of output", cxxopts::value<std::string>())
+      ("l,verbose-level", "set verbose level", cxxopts::value<std::vector<std::uint32_t>>());
+  // clang-format on
+
   options.parse_positional({"output", "positional"});
   auto parsed = options.parse(argc, argv);
   if (parsed.count("help") || !parsed.count("output")) {
@@ -189,7 +211,8 @@ int main(int argc, char* argv[]) {
   }
   if (parsed.count("verbose") && !yk::verbose) ++yk::verbose;
   if (parsed.count("verbose-level"))
-    yk::verbose = parsed["verbose-level"].as<std::vector<size_t>>().back();
+    yk::verbose =
+        parsed["verbose-level"].as<std::vector<std::uint32_t>>().back();
 
   filename = parsed["output"].as<std::string>();
 

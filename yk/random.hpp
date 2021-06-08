@@ -5,7 +5,6 @@
 
 #include <cstdint>
 #include <limits>
-#include <mutex>
 #include <random>
 #include <utility>
 
@@ -36,24 +35,6 @@ struct xor128 {
     z = w;
     return w = (w ^ (w >> 19)) ^ (t ^ (t >> 8));
   }
-};
-
-template <std::uniform_random_bit_generator Gen>
-struct thread_safe_random_generator {
-  std::mutex mtx;
-  Gen gen;
-
-  thread_safe_random_generator(const Gen& g) : gen(g) {}
-  thread_safe_random_generator(Gen&& g) : gen(std::move(g)) {}
-
-  template <class T>
-  thread_safe_random_generator(T seed) : gen(seed) {}
-
-  using result_type = typename Gen::result_type;
-  constexpr static result_type min() { return Gen::min(); }
-  constexpr static result_type max() { return Gen::max(); }
-
-  result_type operator()() { return std::lock_guard(mtx), gen(); }
 };
 
 template <concepts::arithmetic T>

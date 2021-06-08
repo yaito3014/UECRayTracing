@@ -5,6 +5,9 @@ COMMON = $(CXX) $(CXXFLAGS) source.cpp $(LDFLAGS)
 runtime: raytrace
 	./raytrace image.png
 
+parallel: raytrace_parallel
+	./raytrace_parallel image.png
+
 compile-time: raytrace_constexpr
 	./raytrace_constexpr image.png
 
