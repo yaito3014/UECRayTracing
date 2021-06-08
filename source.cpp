@@ -109,7 +109,7 @@ constexpr image_t render() {
 
   constexpr std::string_view time = __TIME__;
   constexpr uint32_t seed =
-      std::accumulate(time.begin(), time.end(), size_t(0));
+      std::accumulate(time.begin(), time.end(), uint32_t(0));
 
 #if YK_ENABLE_PARALLEL
   thread_safe_random_generator<xor128>
