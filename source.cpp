@@ -169,7 +169,7 @@ constexpr image_t render() {
             });
 
         // parallel access to different element in the same vector is safe
-        image[h * yk::constants::image_width + w] =
+        image[h * constants::image_width + w] =
             to_color3b(pixel_color, constants::samples_per_pixel);
       });
 

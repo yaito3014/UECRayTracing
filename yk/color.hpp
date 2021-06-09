@@ -11,7 +11,7 @@
 namespace yk {
 
 template <concepts::arithmetic T>
-struct color3 {
+struct alignas(T) color3 {
   T r, g, b;
 
   template <concepts::arithmetic U>
