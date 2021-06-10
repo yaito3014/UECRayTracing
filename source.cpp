@@ -64,39 +64,58 @@ constexpr std::uint32_t max_depth = YK_MAX_DEPTH;
 
 }  // namespace constants
 
+using color = color3d;
+
 using image_t =
     std::array<color3b, constants::image_width * constants::image_height>;
 
-template <std::floating_point T>
+std::uint32_t verbose = 0;
+
+template <concepts::arithmetic T>
 constexpr color3b to_color3b(const color3<T>& from,
                              std::uint32_t samples_per_pixel) {
   auto [r, g, b] = from / samples_per_pixel;
-  color3d color = {
-      .r = sqrt(r),
-      .g = sqrt(g),
-      .b = sqrt(b),
+  color3<T> color = {
+      .r = math::sqrt(r),
+      .g = math::sqrt(g),
+      .b = math::sqrt(b),
   };
   return (color.clamped(0.0, 0.999) * 256).template to<uint8_t>();
 }
 
 template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
-constexpr vec3<T> random_vec_in_unit_sphere(Gen& gen) {
-  return vec3<double>::random(gen, -1, 1).normalize() *
-         uniform_real_distribution<T>(0.1, 0.99)(gen);
+constexpr vec3<T> random_in_unit_sphere(Gen& gen) {
+  return vec3<T>::random(gen, -1, 1).normalize() *
+         uniform_real_distribution<T>(0.01, 0.99)(gen);
 }
 
-template <std::floating_point T, concepts::hittable<T> H,
+template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
+constexpr vec3<T> random_unit_vector(Gen& gen) {
+  return vec3<T>::random(gen, -1, 1).normalize();
+}
+
+template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
+vec3<T> random_in_hemisphere(const vec3<T>& normal, Gen& gen) {
+  vec3<T> in_unit_sphere = random_unit_vector<T>(gen);
+  return dot(in_unit_sphere, normal) > 0.0 ? in_unit_sphere : -in_unit_sphere;
+}
+
+template <concepts::arithmetic T, concepts::hittable<T> H,
           std::uniform_random_bit_generator Gen>
-constexpr color3d ray_color(const ray<T>& r, const H& world, unsigned int depth,
-                            Gen& gen) {
-  if (depth == 0) return color3d(0, 0, 0);
+constexpr color ray_color(const ray<T>& r, const H& world, unsigned int depth,
+                          Gen& gen) {
+  if (!std::is_constant_evaluated() && verbose > 2)
+    std::cout << "ray { origin : (" << r.origin.x << ", " << r.origin.y << ", "
+              << r.origin.z << "), direction : (" << r.direction.x << ", "
+              << r.direction.y << ", " << r.direction.z << ") }" << '\n';
+  if (depth == 0) return color(0, 0, 0);
   hit_record<T> rec;
-  if (world.hit(r, 0, std::numeric_limits<T>::infinity(), rec)) {
-    pos3<T> target = rec.p + rec.normal + random_vec_in_unit_sphere<T>(gen);
+  if (world.hit(r, 0.001, std::numeric_limits<T>::infinity(), rec)) {
+    pos3<T> target = rec.p + random_in_hemisphere<T>(rec.normal, gen);
     return ray_color(ray<T>(rec.p, target - rec.p), world, depth - 1, gen) / 2;
   }
   auto t = (r.direction.normalized().y + 1.0) / 2;
-  return (1.0 - t) * color3d(1.0, 1.0, 1.0) + t * color3d(0.5, 0.7, 1.0);
+  return (1.0 - t) * color(1.0, 1.0, 1.0) + t * color(0.5, 0.7, 1.0);
 }
 
 template <std::ranges::input_range R, std::copy_constructible F>
@@ -112,7 +131,6 @@ constexpr T transform_reduce(R&& r, T init, BinOp bin_op, UnaryOp unary_op) {
                                std::ranges::end(r), init, bin_op, unary_op);
 }
 
-std::uint32_t verbose = 0;
 
 template <concepts::arithmetic T = double>
 constexpr image_t render() {
@@ -136,9 +154,18 @@ constexpr image_t render() {
       [&](auto hw) {
         const auto& [h, w] = hw;
 
-        color3d pixel_color = transform_reduce(
-            std::views::iota(0u, constants::samples_per_pixel),
-            color3d(0, 0, 0), std::plus{}, [&](auto s) {
+        if (!std::is_constant_evaluated() && verbose)
+          std::cout << "(row,col) : " << '('
+                    << std::setw(
+                           std::ceil(std::log10(constants::image_height)) - 1)
+                    << h << ','
+                    << std::setw(std::ceil(std::log10(constants::image_width)) -
+                                 1)
+                    << w << ')' << std::endl;
+
+        color pixel_color = transform_reduce(
+            std::views::iota(0u, constants::samples_per_pixel), color(0, 0, 0),
+            std::plus{}, [&](auto s) {
               if (!std::is_constant_evaluated() && verbose > 1)
                 std::cout
                     << "(row,col,sam) : " << '('
@@ -159,10 +186,10 @@ constexpr image_t render() {
                                        constants::samples_per_pixel +
                                    s
                              : std::random_device{}());
-              uniform_real_distribution<T> dist(0.0, 1.0);
+              uniform_real_distribution<T> dist(0, 1);
 
               auto u = (w + dist(gen)) / (constants::image_width - 1.0);
-              auto v = (constants::image_height - h - 1 + dist(gen)) /
+              auto v = (constants::image_height - (h + dist(gen)) - 1) /
                        (constants::image_height - 1.0);
               return ray_color(cam.get_ray(u, v), world, constants::max_depth,
                                gen);
@@ -190,9 +217,12 @@ void print_ppm(const image_t& image) {
 }  // namespace yk
 
 int main(int argc, char* argv[]) {
-  // handle command line args
+  std::ios::sync_with_stdio(false);
+  std::cout.tie(nullptr);
 
   std::string filename;
+
+  // handle command line args
   cxxopts::Options options("raytrace", "raytracing program");
 
   // clang-format off
@@ -200,7 +230,7 @@ int main(int argc, char* argv[]) {
       ("h,help"         , "print usage")
       ("v,verbose"      , "verbose output")
       ("o,output"       , "filename of output", cxxopts::value<std::string>())
-      ("l,verbose-level", "set verbose level", cxxopts::value<std::vector<std::uint32_t>>());
+      ("l,verbose-level", "set verbose level" , cxxopts::value<std::vector<std::uint32_t>>());
   // clang-format on
 
   options.parse_positional({"output", "positional"});

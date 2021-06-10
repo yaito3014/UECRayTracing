@@ -11,13 +11,13 @@ parallel: raytrace_parallel
 compile-time: raytrace_constexpr
 	./raytrace_constexpr image.png
 
-raytrace: $(wildcard *.cpp *.hpp)
+raytrace: $(wildcard source.cpp **/*.hpp)
 	$(COMMON) -o raytrace
 
-raytrace_parallel: $(wildcard *.cpp *.hpp)
+raytrace_parallel: $(wildcard source.cpp **/*.hpp)
 	$(COMMON) -o raytrace_parallel -DYK_ENABLE_PARALLEL -ltbb
 
-raytrace_constexpr: $(wildcard *.cpp *.hpp)
+raytrace_constexpr: $(wildcard source.cpp **/*.hpp)
 	$(COMMON) -o raytrace_constexpr -fconstexpr-ops-limit=2100000000 -DYK_ENABLE_CONSTEXPR
 
 clean:
