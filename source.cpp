@@ -131,7 +131,6 @@ constexpr T transform_reduce(R&& r, T init, BinOp bin_op, UnaryOp unary_op) {
                                std::ranges::end(r), init, bin_op, unary_op);
 }
 
-
 template <concepts::arithmetic T = double>
 constexpr image_t render() {
   const camera<T> cam;
@@ -151,17 +150,17 @@ constexpr image_t render() {
   for_each(
       views::cartesian_product(std::views::iota(0u, constants::image_height),
                                std::views::iota(0u, constants::image_width)),
-      [&](auto hw) {
-        const auto& [h, w] = hw;
+      [&](auto xy) {
+        const auto& [y, x] = xy;
 
         if (!std::is_constant_evaluated() && verbose)
           std::cout << "(row,col) : " << '('
                     << std::setw(
                            std::ceil(std::log10(constants::image_height)) - 1)
-                    << h << ','
+                    << y << ','
                     << std::setw(std::ceil(std::log10(constants::image_width)) -
                                  1)
-                    << w << ')' << std::endl;
+                    << x << ')' << std::endl;
 
         color pixel_color = transform_reduce(
             std::views::iota(0u, constants::samples_per_pixel), color(0, 0, 0),
@@ -171,10 +170,10 @@ constexpr image_t render() {
                     << "(row,col,sam) : " << '('
                     << std::setw(
                            std::ceil(std::log10(constants::image_height)) - 1)
-                    << h << ','
+                    << y << ','
                     << std::setw(std::ceil(std::log10(constants::image_width)) -
                                  1)
-                    << w << ','
+                    << x << ','
                     << std::setw(
                            std::ceil(std::log10(constants::samples_per_pixel)) -
                            1)
@@ -182,21 +181,21 @@ constexpr image_t render() {
 
               xor128 gen(std::is_constant_evaluated()
                              ? constexpr_seed +
-                                   (h * constants::image_width + w) *
+                                   (y * constants::image_width + x) *
                                        constants::samples_per_pixel +
                                    s
                              : std::random_device{}());
               uniform_real_distribution<T> dist(0, 1);
 
-              auto u = (w + dist(gen)) / (constants::image_width - 1.0);
-              auto v = (constants::image_height - (h + dist(gen)) - 1) /
-                       (constants::image_height - 1.0);
+              auto u = (x + dist(gen)) / constants::image_width;
+              auto v = (constants::image_height - y - 1 + dist(gen)) /
+                       constants::image_height;
               return ray_color(cam.get_ray(u, v), world, constants::max_depth,
                                gen);
             });
 
         // parallel access to different element in the same vector is safe
-        image[h * constants::image_width + w] =
+        image[y * constants::image_width + x] =
             to_color3b(pixel_color, constants::samples_per_pixel);
       });
 
