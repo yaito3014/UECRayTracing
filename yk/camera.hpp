@@ -22,14 +22,13 @@ struct camera {
     origin = pos3<T, world_tag>(0, 0, 0);
     horizontal = vec3<T>(viewport_width, 0.0, 0.0);
     vertical = vec3<T>(0.0, viewport_height, 0.0);
-    lower_left_corner =
-        (-horizontal / 2 - vertical / 2 - vec3<T>(0, 0, focal_length))
-            .to<camera_tag>();
+    lower_left_corner = pos3<T, camera_tag>(0, 0, 0) - horizontal / 2 -
+                        vertical / 2 - vec3<T>(0, 0, focal_length);
   }
 
   constexpr ray<T> get_ray(T u, T v) const {
-    return ray<T>(origin,
-                  lower_left_corner + u * horizontal + v * vertical - origin);
+    return ray<T>(origin, (lower_left_corner + u * horizontal + v * vertical)
+                              .template to<default_tag>());
   }
 
   pos3<T, world_tag> origin;

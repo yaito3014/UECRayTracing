@@ -111,7 +111,8 @@ constexpr color ray_color(const ray<T>& r, const H& world, unsigned int depth,
   if (depth == 0) return color(0, 0, 0);
   hit_record<T> rec;
   if (world.hit(r, 0.001, std::numeric_limits<T>::infinity(), rec)) {
-    pos3<T> target = rec.p + random_in_hemisphere<T>(rec.normal, gen);
+    pos3<T, world_tag> target =
+        rec.p + random_in_hemisphere<T>(rec.normal, gen);
     return ray_color(ray<T>(rec.p, target - rec.p), world, depth - 1, gen) / 2;
   }
   auto t = (r.direction.normalized().y + 1.0) / 2;
@@ -135,9 +136,10 @@ template <concepts::arithmetic T = double>
 constexpr image_t render() {
   const camera<T> cam;
 
-  const auto world = hittable_list<T>{}
-                         .add(sphere<T>(pos3<T>(0, 0, -1), 0.5))
-                         .add(sphere<T>(pos3<T>(0, -100.5, -1), 100));
+  const auto world =
+      hittable_list<T>{}
+          .add(sphere<T>(pos3<T, world_tag>(0, 0, -1), 0.5))
+          .add(sphere<T>(pos3<T, world_tag>(0, -100.5, -1), 100));
 
   if (!std::is_constant_evaluated()) std::cout << "rendering..." << std::endl;
 

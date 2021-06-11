@@ -37,8 +37,17 @@ struct vec3 {
     };
   }
 
+  // clang-format off
   template <concepts::tag ToTag>
-  requires (not same_as<Tag, default_tag>) && std::derived_from<ToTag, Tag>
+    requires (not std::same_as<Tag, default_tag>)
+              && std::same_as<ToTag, default_tag>
+  constexpr vec3<T, default_tag> to() const {
+    return {x, y, z};
+  }
+
+  template <concepts::tag ToTag>
+    requires (not std::same_as<Tag, default_tag>)
+              && std::derived_from<ToTag, Tag>
   constexpr vec3<T, ToTag> to(vec3 origin) const {
     return {
         .x = origin.x + x,
@@ -47,7 +56,19 @@ struct vec3 {
     };
   }
 
-  template <concepts::arithmethic U, concepts::tag ToTag>
+  template <concepts::tag ToTag>
+    requires (not std::same_as<Tag, default_tag>)
+              && std::derived_from<Tag, ToTag>
+  constexpr vec3<T, ToTag> to(vec3<T, ToTag> origin) const {
+    return {
+        .x = x - origin.x,
+        .y = y - origin.y,
+        .z = z - origin.z,
+    };
+  }
+  // clang-format on
+
+  template <concepts::arithmetic U, concepts::tag ToTag>
   constexpr vec3<U, ToTag> to(vec3 origin) const {
     return to<ToTag>(origin).template to<U>();
   }
@@ -126,12 +147,16 @@ constexpr auto operator-(const vec3<T, Tag> &lhs, const vec3<U, Tag> &rhs) {
 }
 
 template <concepts::arithmetic T, concepts::arithmetic U, concepts::tag Tag>
-constexpr auto operator+(const vec3<T, Tag> &lhs, const vec3<U, default_tag> &rhs) {
+  requires(not std::same_as<Tag, default_tag>)
+constexpr auto operator+(const vec3<T, Tag> &lhs,
+                         const vec3<U, default_tag> &rhs) {
   return vec3<T, Tag>{lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z};
 }
 
 template <concepts::arithmetic T, concepts::arithmetic U, concepts::tag Tag>
-constexpr auto operator-(const vec3<T, Tag> &lhs, const vec3<U, default_tag> &rhs) {
+  requires(not std::same_as<Tag, default_tag>)
+constexpr auto operator-(const vec3<T, Tag> &lhs,
+                         const vec3<U, default_tag> &rhs) {
   return vec3<T, Tag>{lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z};
 }
 
@@ -169,9 +194,6 @@ using vec3d = vec3<double>;
 
 template <class T, concepts::tag Tag>
 using pos3 = vec3<T, Tag>;
-
-template <concepts::tag Tag>
-using pos3d = pos3<double>;
 
 }  // namespace yk
 

@@ -17,12 +17,13 @@ struct hittable_list : public hittable_interface<T, hittable_list<T, Hs...>> {
   std::tuple<Hs...> objects = {};
 
   constexpr hittable_list() = default;
-  constexpr hittable_list(std::tuple<Hs...> objects_) : objects(std::move(objects_)) {}
+  constexpr hittable_list(std::tuple<Hs...> objects_)
+      : objects(std::move(objects_)) {}
 
   template <concepts::hittable<T> H, concepts::hittable<T>... Args>
   [[nodiscard]] constexpr hittable_list<T, Hs..., H> add(H h, Args... args) {
     return hittable_list<T, Hs..., H>(std::tuple_cat(
-            std::move(objects), std::tuple(std::move(h), std::move(args)...)));
+        std::move(objects), std::tuple(std::move(h), std::move(args)...)));
   }
 
   constexpr bool hit_impl(const ray<T>& r, T t_min, T t_max,

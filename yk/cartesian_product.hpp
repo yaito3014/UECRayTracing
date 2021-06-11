@@ -80,7 +80,8 @@ constexpr void tuple_for_each(F&& f, Tuple&& tuple) {
 }
 
 template <std::ranges::forward_range... Vs>
-requires(std::ranges::view<Vs>&&...) class cartesian_product_view
+  requires(std::ranges::view<Vs>&&...)
+class cartesian_product_view
     : public std::ranges::view_interface<cartesian_product_view<Vs...>> {
  private:
   std::tuple<Vs...> bases_;  // exposition only
@@ -381,8 +382,9 @@ struct Pipe;
 struct RangeAdaptorClosure {
   // range | adaptor is equivalent to adaptor(range).
   template <typename Self, typename Range>
-  requires std::derived_from<std::remove_cvref_t<Self>, RangeAdaptorClosure> &&
-      adaptor_invocable<Self, Range>
+    requires std::derived_from<std::remove_cvref_t<Self>,
+                               RangeAdaptorClosure> &&
+        adaptor_invocable<Self, Range>
   friend constexpr auto operator|(Range&& r, Self&& self) {
     return std::forward<Self>(self)(std::forward<Range>(r));
   }
@@ -390,8 +392,8 @@ struct RangeAdaptorClosure {
   // Compose the adaptors lhs and rhs into a pipeline, returning
   // another range adaptor closure object.
   template <typename Lhs, typename Rhs>
-  requires std::derived_from<Lhs, RangeAdaptorClosure> &&
-      std::derived_from<Rhs, RangeAdaptorClosure>
+    requires std::derived_from<Lhs, RangeAdaptorClosure> &&
+        std::derived_from<Rhs, RangeAdaptorClosure>
   friend constexpr auto operator|(Lhs lhs, Rhs rhs) {
     return Pipe<Lhs, Rhs>{std::move(lhs), std::move(rhs)};
   }
@@ -408,7 +410,7 @@ struct Partial : RangeAdaptorClosure {
   // Invoke Adaptor with arguments r, M_args... according to the
   // value category of the range adaptor closure object.
   template <typename Range>
-  requires adaptor_invocable<Adaptor, Range, const Args&...>
+    requires adaptor_invocable<Adaptor, Range, const Args&...>
   constexpr auto operator()(Range&& r) const& {
     auto forwarder = [&r](const auto&... args) {
       return Adaptor{}(std::forward<Range>(r), args...);
@@ -417,7 +419,7 @@ struct Partial : RangeAdaptorClosure {
   }
 
   template <typename Range>
-  requires adaptor_invocable<Adaptor, Range, Args...>
+    requires adaptor_invocable<Adaptor, Range, Args...>
   constexpr auto operator()(Range&& r) && {
     auto forwarder = [&r](auto&... args) {
       return Adaptor{}(std::forward<Range>(r), std::move(args)...);
@@ -438,13 +440,13 @@ struct Partial<Adaptor, Arg> : RangeAdaptorClosure {
   constexpr Partial(Arg arg) : M_arg(std::move(arg)) {}
 
   template <typename Range>
-  requires adaptor_invocable<Adaptor, Range, const Arg&>
+    requires adaptor_invocable<Adaptor, Range, const Arg&>
   constexpr auto operator()(Range&& r) const& {
     return Adaptor{}(std::forward<Range>(r), M_arg);
   }
 
   template <typename Range>
-  requires adaptor_invocable<Adaptor, Range, Arg>
+    requires adaptor_invocable<Adaptor, Range, Arg>
   constexpr auto operator()(Range&& r) && {
     return Adaptor{}(std::forward<Range>(r), std::move(M_arg));
   }
@@ -471,13 +473,13 @@ struct Pipe : RangeAdaptorClosure {
   // Invoke M_rhs(M_lhs(r)) according to the value category of this
   // range adaptor closure object.
   template <typename Range>
-  requires pipe_invocable<const Lhs&, const Rhs&, Range>
+    requires pipe_invocable<const Lhs&, const Rhs&, Range>
   constexpr auto operator()(Range&& r) const& {
     return M_rhs(M_lhs(std::forward<Range>(r)));
   }
 
   template <typename Range>
-  requires pipe_invocable<Lhs, Rhs, Range>
+    requires pipe_invocable<Lhs, Rhs, Range>
   constexpr auto operator()(Range&& r) && {
     return std::move(M_rhs)(std::move(M_lhs)(std::forward<Range>(r)));
   }

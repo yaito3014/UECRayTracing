@@ -10,17 +10,17 @@ namespace yk {
 
 template <concepts::arithmetic T>
 struct ray {
-  pos3<T> origin;
+  pos3<T, world_tag> origin;
   vec3<T> direction;
 
   template <concepts::arithmetic U>
-  constexpr pos3<T> at(U scalar) const {
+  constexpr pos3<T, world_tag> at(U scalar) const {
     return origin + direction * scalar;
   }
 };
 
 template <concepts::arithmetic T>
-ray(pos3<T>, vec3<T>) -> ray<T>;
+ray(pos3<T, world_tag>, vec3<T>) -> ray<T>;
 
 }  // namespace yk
 

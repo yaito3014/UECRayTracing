@@ -10,13 +10,14 @@ namespace yk {
 
 template <concepts::arithmetic T>
 struct sphere : public hittable_interface<T, sphere<T>> {
-  pos3<T> center;
+  pos3<T, world_tag> center;
   T radius;
 
-  constexpr sphere(pos3<T> center, T radius) : center(center), radius(radius) {}
+  constexpr sphere(pos3<T, world_tag> center, T radius)
+      : center(center), radius(radius) {}
 
   constexpr bool hit_impl(const ray<T>& r, T t_min, T t_max,
-                             hit_record<T>& rec) const {
+                          hit_record<T>& rec) const {
     vec3<T> oc = r.origin - center;
     auto a = r.direction.length_squared();
     auto half_b = dot(oc, r.direction);
