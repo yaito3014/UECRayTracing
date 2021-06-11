@@ -9,6 +9,8 @@
 
 namespace yk {
 
+struct camera_tag : world_tag {};
+
 template <concepts::arithmetic T>
 struct camera {
   constexpr camera() {
@@ -17,11 +19,12 @@ struct camera {
     auto viewport_width = aspect_ratio * viewport_height;
     auto focal_length = 1.0;
 
-    origin = pos3<T>(0, 0, 0);
+    origin = pos3<T, world_tag>(0, 0, 0);
     horizontal = vec3<T>(viewport_width, 0.0, 0.0);
     vertical = vec3<T>(0.0, viewport_height, 0.0);
     lower_left_corner =
-        origin - horizontal / 2 - vertical / 2 - vec3<T>(0, 0, focal_length);
+        (-horizontal / 2 - vertical / 2 - vec3<T>(0, 0, focal_length))
+            .to<camera_tag>();
   }
 
   constexpr ray<T> get_ray(T u, T v) const {
@@ -29,8 +32,8 @@ struct camera {
                   lower_left_corner + u * horizontal + v * vertical - origin);
   }
 
-  pos3<T> origin;
-  pos3<T> lower_left_corner;
+  pos3<T, world_tag> origin;
+  pos3<T, camera_tag> lower_left_corner;
   vec3<T> horizontal;
   vec3<T> vertical;
 };
