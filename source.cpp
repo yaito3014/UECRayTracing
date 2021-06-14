@@ -181,7 +181,7 @@ constexpr image_t render() {
                            1)
                     << s << ')' << std::endl;
 
-              xor128 gen(std::is_constant_evaluated()
+              mt19937 gen(std::is_constant_evaluated()
                              ? constexpr_seed +
                                    (y * constants::image_width + x) *
                                        constants::samples_per_pixel +
