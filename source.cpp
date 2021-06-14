@@ -95,7 +95,7 @@ constexpr vec3<T> random_unit_vector(Gen& gen) {
 }
 
 template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
-vec3<T> random_in_hemisphere(const vec3<T>& normal, Gen& gen) {
+constexpr vec3<T> random_in_hemisphere(const vec3<T>& normal, Gen& gen) {
   vec3<T> in_unit_sphere = random_unit_vector<T>(gen);
   return dot(in_unit_sphere, normal) > 0.0 ? in_unit_sphere : -in_unit_sphere;
 }
@@ -152,8 +152,8 @@ constexpr image_t render() {
   for_each(
       views::cartesian_product(std::views::iota(0u, constants::image_height),
                                std::views::iota(0u, constants::image_width)),
-      [&](auto xy) {
-        const auto& [y, x] = xy;
+      [&](auto yx) {
+        const auto& [y, x] = yx;
 
         if (!std::is_constant_evaluated() && verbose)
           std::cout << "(row,col) : " << '('
@@ -181,7 +181,7 @@ constexpr image_t render() {
                            1)
                     << s << ')' << std::endl;
 
-              xor128 gen(std::is_constant_evaluated()
+              mt19937 gen(std::is_constant_evaluated()
                              ? constexpr_seed +
                                    (y * constants::image_width + x) *
                                        constants::samples_per_pixel +

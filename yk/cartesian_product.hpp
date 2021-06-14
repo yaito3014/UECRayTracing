@@ -170,7 +170,6 @@ class cartesian_product_view
       return tmp;
     }
 
-    // TODO: implement!
     constexpr iterator& operator+=(difference_type x) requires(
         cartesian_product_is_random_access<maybe_const<Const, Vs>...>) {
       auto advance = [this]<size_t N = sizeof...(Vs)>(auto& self,
