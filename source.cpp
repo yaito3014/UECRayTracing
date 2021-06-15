@@ -69,8 +69,6 @@ using color = color3d;
 using image_t =
     std::array<color3b, constants::image_width * constants::image_height>;
 
-std::uint32_t verbose = 0;
-
 template <concepts::arithmetic T>
 constexpr color3b to_color3b(const color3<T>& from,
                              std::uint32_t samples_per_pixel) {
@@ -100,24 +98,7 @@ constexpr vec3<T> random_in_hemisphere(const vec3<T>& normal, Gen& gen) {
   return dot(in_unit_sphere, normal) > 0.0 ? in_unit_sphere : -in_unit_sphere;
 }
 
-template <concepts::arithmetic T, concepts::hittable<T> H,
-          std::uniform_random_bit_generator Gen>
-constexpr color ray_color(const ray<T>& r, const H& world, unsigned int depth,
-                          Gen& gen) {
-  if (!std::is_constant_evaluated() && verbose > 2)
-    std::cout << "ray { origin : (" << r.origin.x << ", " << r.origin.y << ", "
-              << r.origin.z << "), direction : (" << r.direction.x << ", "
-              << r.direction.y << ", " << r.direction.z << ") }" << '\n';
-  if (depth == 0) return color(0, 0, 0);
-  hit_record<T> rec;
-  if (world.hit(r, 0.001, std::numeric_limits<T>::infinity(), rec)) {
-    pos3<T, world_tag> target =
-        rec.p + random_in_hemisphere<T>(rec.normal, gen);
-    return ray_color(ray<T>(rec.p, target - rec.p), world, depth - 1, gen) / 2;
-  }
-  auto t = (r.direction.normalized().y + 1.0) / 2;
-  return (1.0 - t) * color(1.0, 1.0, 1.0) + t * color(0.5, 0.7, 1.0);
-}
+
 
 template <std::ranges::input_range R, std::copy_constructible F>
 constexpr auto for_each(R&& range, F func) {
@@ -134,7 +115,8 @@ constexpr T transform_reduce(R&& r, T init, BinOp bin_op, UnaryOp unary_op) {
 
 template <concepts::arithmetic T = double>
 constexpr image_t render() {
-  const camera<T> cam;
+  const raytracer<T, double> tracer = {};
+  const camera<T> cam = {};
 
   const auto world =
       hittable_list<T>{}
@@ -182,17 +164,17 @@ constexpr image_t render() {
                     << s << ')' << std::endl;
 
               mt19937 gen(std::is_constant_evaluated()
-                             ? constexpr_seed +
-                                   (y * constants::image_width + x) *
-                                       constants::samples_per_pixel +
-                                   s
-                             : std::random_device{}());
+                              ? constexpr_seed +
+                                    (y * constants::image_width + x) *
+                                        constants::samples_per_pixel +
+                                    s
+                              : std::random_device{}());
               uniform_real_distribution<T> dist(0, 1);
 
               auto u = (x + dist(gen)) / constants::image_width;
               auto v = (constants::image_height - y - 1 + dist(gen)) /
                        constants::image_height;
-              return ray_color(cam.get_ray(u, v), world, constants::max_depth,
+              return tracer.ray_color(cam.get_ray(u, v), world, constants::max_depth,
                                gen);
             });
 

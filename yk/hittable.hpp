@@ -5,10 +5,12 @@
 
 #include <concepts>
 #include <type_traits>
+#include <optional>
 
 #include "concepts.hpp"
 #include "ray.hpp"
 #include "vec3.hpp"
+#include "raytracer.hpp"
 
 namespace yk {
 
@@ -25,11 +27,22 @@ struct hit_record {
   }
 };
 
+enum class hit_status {
+  hit,
+  scattered,
+};
+
 template <concepts::arithmetic T, class Derived>
 struct hittable_interface {
-  constexpr bool hit(const ray<T>& r, T t_min, T t_max,
-                     hit_record<T>& rec) const {
-    return static_cast<const Derived*>(this)->hit_impl(r, t_min, t_max, rec);
+  constexpr std::optional<hit_record<T>> hit(const ray<T>& r, T t_min, T t_max) const {
+    return static_cast<const Derived*>(this)->hit_impl(r, t_min, t_max);
+  }
+  constexpr std::optional<hit_record<T>> hit(const ray<T>& r, T t_min, T t_max) {
+    return static_cast<Derived*>(this)->hit_impl(r, t_min, t_max);
+  }
+  template <concepts::arithmetic U>
+  constexpr bool scatter(const ray<T>& r, const hit_record<T>& rec, color3<U>& attenuation, ray<T>& r) const {
+    return static_cast<const Derived*>(this)->scatter_impl(r, rec);
   }
 };
 

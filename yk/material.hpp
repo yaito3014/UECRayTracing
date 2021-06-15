@@ -1,0 +1,8 @@
+#pragma once
+
+#ifndef YK_RAYTRACING_MATERIAL_H
+#define YK_RAYTRACING_MATERIAL_H
+
+
+
+#endif  // !YK_RAYTRACING_MATERIAL_H
