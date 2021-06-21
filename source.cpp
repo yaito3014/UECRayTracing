@@ -27,6 +27,7 @@
 #include "yk/config.hpp"
 #include "yk/hittable.hpp"
 #include "yk/hittable_list.hpp"
+#include "yk/material.hpp"
 #include "yk/math.hpp"
 #include "yk/random.hpp"
 #include "yk/ray.hpp"
@@ -81,25 +82,6 @@ constexpr color3b to_color3b(const color3<T>& from,
   return (color.clamped(0.0, 0.999) * 256).template to<uint8_t>();
 }
 
-template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
-constexpr vec3<T> random_in_unit_sphere(Gen& gen) {
-  return vec3<T>::random(gen, -1, 1).normalize() *
-         uniform_real_distribution<T>(0.01, 0.99)(gen);
-}
-
-template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
-constexpr vec3<T> random_unit_vector(Gen& gen) {
-  return vec3<T>::random(gen, -1, 1).normalize();
-}
-
-template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
-constexpr vec3<T> random_in_hemisphere(const vec3<T>& normal, Gen& gen) {
-  vec3<T> in_unit_sphere = random_unit_vector<T>(gen);
-  return dot(in_unit_sphere, normal) > 0.0 ? in_unit_sphere : -in_unit_sphere;
-}
-
-
-
 template <std::ranges::input_range R, std::copy_constructible F>
 constexpr auto for_each(R&& range, F func) {
   return std::for_each(YK_EXEC_PAR std::ranges::begin(range),
@@ -120,8 +102,10 @@ constexpr image_t render() {
 
   const auto world =
       hittable_list<T>{}
-          .add(sphere<T>(pos3<T, world_tag>(0, 0, -1), 0.5))
-          .add(sphere<T>(pos3<T, world_tag>(0, -100.5, -1), 100));
+          .add(sphere(pos3<T, world_tag>(0, 0, -1), 0.5,
+                      lambertian<T, color::value_type>({0.7, 0.3, 0.3})))
+          .add(sphere(pos3<T, world_tag>(0, -100.5, -1), 100.0,
+                      lambertian<T, color::value_type>({0.8, 0.8, 0.0})));
 
   if (!std::is_constant_evaluated()) std::cout << "rendering..." << std::endl;
 
@@ -174,8 +158,8 @@ constexpr image_t render() {
               auto u = (x + dist(gen)) / constants::image_width;
               auto v = (constants::image_height - y - 1 + dist(gen)) /
                        constants::image_height;
-              return tracer.ray_color(cam.get_ray(u, v), world, constants::max_depth,
-                               gen);
+              return tracer.ray_color(cam.get_ray(u, v), world,
+                                      constants::max_depth, gen);
             });
 
         // parallel access to different element in the same vector is safe

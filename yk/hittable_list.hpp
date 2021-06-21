@@ -18,7 +18,6 @@ namespace yk {
 template <concepts::arithmetic T, concepts::hittable<T>... Hs>
 struct hittable_list : public hittable_interface<T, hittable_list<T, Hs...>> {
   std::tuple<Hs...> objects = {};
-  size_t hit_index = std::numeric_limits<size_t>::max();
 
   constexpr hittable_list() = default;
   constexpr hittable_list(std::tuple<Hs...> objects_)
@@ -31,20 +30,37 @@ struct hittable_list : public hittable_interface<T, hittable_list<T, Hs...>> {
   }
 
   constexpr std::optional<hit_record<T>> hit_impl(const ray<T>& r, T t_min,
-                                                  T t_max) {
+                                                  T t_max) const {
     using namespace harmony::monadic_op;
     auto closest_so_far = t_max;
     return [&]<std::size_t... Is>(std::index_sequence<Is...>) {
-      auto pred = [&](concepts::hittable<T> auto h, size_t index) {
+      auto pred = [&](concepts::hittable<T> auto h,
+                      size_t index) -> std::optional<hit_record<T>> {
         return h.hit(r, t_min, closest_so_far) |
-               and_then([&](const hit_record<T>& rec) {
+               and_then([&](hit_record<T> rec) {
                  closest_so_far = rec.t;
-                 hit_index = index;
-                 return rec;
+                 rec.id = index;
+                 return std::optional(rec);
                });
       };
-      return (std::nullopt | ... | or_else([](std::nullopt_t) {
-                return pred(std::get<Is>(objects, Is));
+      return (std::optional<hit_record<T>>{} | ... |
+              or_else([&](std::nullopt_t) {
+                return pred(std::get<Is>(objects), Is);
+              }));
+    }
+    (std::index_sequence_for<Hs...>());
+  }
+
+  template <concepts::arithmetic U, std::uniform_random_bit_generator Gen>
+  constexpr std::optional<std::pair<color3<U>, ray<T>>> scatter(
+      const ray<T>& r, const hit_record<T>& rec, Gen& gen) const {
+    using namespace harmony::monadic_op;
+    return [&]<size_t... Is>(std::index_sequence<Is...>) {
+      return (std::optional<std::pair<color3<U>, ray<T>>>{} | ... |
+              or_else([&](std::nullopt_t) {
+                return rec.id == Is ? std::get<Is>(objects).template scatter<U>(
+                                          r, rec, gen)
+                                    : std::nullopt;
               }));
     }
     (std::index_sequence_for<Hs...>());

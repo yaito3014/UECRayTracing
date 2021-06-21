@@ -73,6 +73,12 @@ struct vec3 {
     return to<ToTag>(origin).template to<U>();
   }
 
+  constexpr bool near_zero() const {
+    constexpr auto fabs = [](auto x) { return x > 0 ? x : -x; };
+    constexpr auto s = 1e-8;
+    return (fabs(x) < s) && (fabs(y) < s) && (fabs(x) < s);
+  }
+
   constexpr bool operator==(const vec3 &) const = default;
 
   constexpr vec3 operator-() const { return {-x, -y, -z}; }
