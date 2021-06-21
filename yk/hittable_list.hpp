@@ -34,8 +34,7 @@ struct hittable_list : public hittable_interface<T, hittable_list<T, Hs...>> {
     using namespace harmony::monadic_op;
     auto closest_so_far = t_max;
     return [&]<std::size_t... Is>(std::index_sequence<Is...>) {
-      auto pred = [&](concepts::hittable<T> auto h,
-                      size_t index) -> std::optional<hit_record<T>> {
+      auto op = [&](concepts::hittable<T> auto h, std::size_t index) {
         return h.hit(r, t_min, closest_so_far) |
                and_then([&](hit_record<T> rec) {
                  closest_so_far = rec.t;
@@ -44,9 +43,16 @@ struct hittable_list : public hittable_interface<T, hittable_list<T, Hs...>> {
                });
       };
       return (std::optional<hit_record<T>>{} | ... |
-              or_else([&](std::nullopt_t) {
-                return pred(std::get<Is>(objects), Is);
-              }));
+              fold(
+                  [&](const hit_record<T>& rec) {
+                    return *(op(std::get<Is>(objects), Is) |
+                             or_else([&](std::nullopt_t) {
+                               return std::optional(rec);
+                             }));
+                  },
+                  [&](std::nullopt_t) -> std::optional<hit_record<T>> {
+                    return op(std::get<Is>(objects), Is);
+                  }));
     }
     (std::index_sequence_for<Hs...>());
   }
