@@ -41,14 +41,13 @@ constexpr vec3<T> random_in_hemisphere(const vec3<T>& normal, Gen& gen) {
   return dot(in_unit_sphere, normal) > 0.0 ? in_unit_sphere : -in_unit_sphere;
 }
 
-template <concepts::arithmetic T, concepts::arithmetic U>
+template <concepts::arithmetic U>
 struct lambertian {
   color3<U> albedo;
 
-  constexpr lambertian(const color3<U>& albedo)
-      : albedo(albedo) {}
+  constexpr lambertian(const color3<U>& albedo) : albedo(albedo) {}
 
-  template<std::uniform_random_bit_generator Gen>
+  template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
   constexpr std::optional<std::pair<color3<U>, ray<T>>> scatter(
       const ray<T>&, const hit_record<T>& rec, Gen& gen) const {
     auto scatter_direction = rec.normal + random_unit_vector<T>(gen);
@@ -57,6 +56,22 @@ struct lambertian {
     if (scatter_direction.near_zero()) scatter_direction = rec.normal;
 
     return std::make_pair(albedo, ray(rec.p, scatter_direction));
+  }
+};
+
+template <concepts::arithmetic U>
+struct metal {
+  color3<U> albedo;
+  constexpr metal(const color3<U>& a) : albedo(a) {}
+
+  template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
+  constexpr std::optional<std::pair<color3<U>, ray<T>>> scatter(
+      const ray<T>& r_in, const hit_record<T>& rec, Gen& gen) const {
+    vec3 reflected = reflect(r_in.direction.normalized(), rec.normal);
+    auto scattered = ray(rec.p, reflected);
+    if (dot(scattered.direction, rec.normal) > 0)
+      return std::make_pair(albedo, scattered);
+    return std::nullopt;
   }
 };
 

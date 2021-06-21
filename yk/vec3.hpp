@@ -196,6 +196,11 @@ constexpr auto cross(const vec3<T, Tag> &lhs, const vec3<U, Tag> &rhs) {
   return lhs.cross(rhs);
 }
 
+template <concepts::arithmetic T, concepts::arithmetic U, concepts::tag Tag>
+constexpr auto reflect(const vec3<T, Tag> &vec, const vec3<U, Tag> &norm) {
+  return vec - 2 * dot(vec, norm) * norm;
+}
+
 using vec3d = vec3<double>;
 
 template <class T, concepts::tag Tag>
