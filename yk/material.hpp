@@ -66,8 +66,8 @@ struct metal {
 
   template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
   constexpr std::optional<std::pair<color3<U>, ray<T>>> scatter(
-      const ray<T>& r_in, const hit_record<T>& rec, Gen& gen) const {
-    vec3 reflected = reflect(r_in.direction.normalized(), rec.normal);
+      const ray<T>& r_in, const hit_record<T>& rec, Gen&) const {
+    auto reflected = reflect(r_in.direction.normalized(), rec.normal);
     auto scattered = ray(rec.p, reflected);
     if (dot(scattered.direction, rec.normal) > 0)
       return std::make_pair(albedo, scattered);
