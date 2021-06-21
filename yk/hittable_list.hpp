@@ -3,12 +3,15 @@
 #define YK_RAYTRACING_HITTABLE_LIST_H
 
 #include <cstddef>
+#include <limits>
 #include <tuple>
 #include <utility>
 
+#include "../thirdparty/harmony.hpp"
 #include "concepts.hpp"
 #include "hittable.hpp"
 #include "ray.hpp"
+#include "raytracer.hpp"
 
 namespace yk {
 
@@ -26,23 +29,41 @@ struct hittable_list : public hittable_interface<T, hittable_list<T, Hs...>> {
         std::move(objects), std::tuple(std::move(h), std::move(args)...)));
   }
 
-  constexpr bool hit_impl(const ray<T>& r, T t_min, T t_max,
-                          hit_record<T>& rec) const {
-    hit_record<T> temp_rec = {};
-    bool hit_anything = false;
+  constexpr std::optional<hit_record<T>> hit_impl(const ray<T>& r, T t_min,
+                                                  T t_max) const {
+    using namespace harmony::monadic_op;
     auto closest_so_far = t_max;
-
-    [&]<std::size_t... Is>(std::index_sequence<Is...>)->void {
-      auto pred = [&](concepts::hittable<T> auto h) {
-        if (!h.hit(r, t_min, closest_so_far, temp_rec)) return;
-        hit_anything = true;
-        closest_so_far = temp_rec.t;
-        rec = temp_rec;
+    return [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+      auto pred = [&](concepts::hittable<T> auto h,
+                      size_t index) -> std::optional<hit_record<T>> {
+        return h.hit(r, t_min, closest_so_far) |
+               and_then([&](hit_record<T> rec) {
+                 closest_so_far = rec.t;
+                 rec.id = index;
+                 return std::optional(rec);
+               });
       };
-      return (pred(std::get<Is>(objects)), ...);
+      return (std::optional<hit_record<T>>{} | ... |
+              or_else([&](std::nullopt_t) {
+                return pred(std::get<Is>(objects), Is);
+              }));
     }
     (std::index_sequence_for<Hs...>());
-    return hit_anything;
+  }
+
+  template <concepts::arithmetic U, std::uniform_random_bit_generator Gen>
+  constexpr std::optional<std::pair<color3<U>, ray<T>>> scatter(
+      const ray<T>& r, const hit_record<T>& rec, Gen& gen) const {
+    using namespace harmony::monadic_op;
+    return [&]<size_t... Is>(std::index_sequence<Is...>) {
+      return (std::optional<std::pair<color3<U>, ray<T>>>{} | ... |
+              or_else([&](std::nullopt_t) {
+                return rec.id == Is ? std::get<Is>(objects).template scatter<U>(
+                                          r, rec, gen)
+                                    : std::nullopt;
+              }));
+    }
+    (std::index_sequence_for<Hs...>());
   }
 };
 

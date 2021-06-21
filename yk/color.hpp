@@ -12,6 +12,7 @@ namespace yk {
 
 template <concepts::arithmetic T>
 struct alignas(T) color3 {
+  using value_type = T;
   T r, g, b;
 
   template <concepts::arithmetic U>
@@ -56,6 +57,13 @@ struct alignas(T) color3 {
     return *this;
   }
 
+  constexpr color3 &operator*=(const color3 &rhs) {
+    r *= rhs.r;
+    g *= rhs.g;
+    b *= rhs.b;
+    return *this;
+  }
+
   template <concepts::arithmetic U>
   constexpr color3 &operator*=(U rhs) {
     r *= rhs;
@@ -81,6 +89,11 @@ constexpr auto operator+(const color3<T> &lhs, const color3<U> &rhs) {
 template <concepts::arithmetic T, concepts::arithmetic U>
 constexpr auto operator-(const color3<T> &lhs, const color3<U> &rhs) {
   return color3{lhs.r - rhs.r, lhs.g - rhs.g, lhs.b - rhs.b};
+}
+
+template <concepts::arithmetic T, concepts::arithmetic U>
+constexpr auto operator*(const color3<T> &lhs, const color3<U> &rhs) {
+  return color3{lhs.r * rhs.r, lhs.g * rhs.g, lhs.b * rhs.b};
 }
 
 template <concepts::arithmetic T, concepts::arithmetic U>

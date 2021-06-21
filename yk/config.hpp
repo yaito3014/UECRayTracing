@@ -25,4 +25,8 @@
 
 #endif  // YK_ENABLE_CONSTEXPR
 
+namespace yk {
+  std::uint32_t verbose = 0;
+}
+
 #endif  // !YK_RAYTRACING_CONFIG_H
