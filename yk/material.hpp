@@ -5,7 +5,6 @@
 
 #include <algorithm>
 #include <functional>
-#include <optional>
 #include <random>
 #include <utility>
 
@@ -32,14 +31,17 @@ struct lambertian {
   constexpr lambertian(const color3<U>& albedo) : albedo(albedo) {}
 
   template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
-  constexpr std::optional<std::pair<color3<U>, ray<T>>> scatter(
-      const ray<T>&, const hit_record<T>& rec, Gen& gen) const {
+  constexpr bool scatter(const ray<T>&, const hit_record<T>& rec,
+                         color3<U>& attenuation, ray<T>& scattered,
+                         Gen& gen) const {
     auto scatter_direction = rec.normal + random_unit_vector<T>(gen);
 
     // Catch degenerate scatter direction
     if (scatter_direction.near_zero()) scatter_direction = rec.normal;
 
-    return std::make_pair(albedo, ray(rec.p, scatter_direction));
+    attenuation = albedo;
+    scattered = ray(rec.p, scatter_direction);
+    return true;
   }
 };
 
@@ -51,25 +53,26 @@ struct metal {
       : albedo(albedo), fuzz(std::clamp<U>(fuzz, 0, 1)) {}
 
   template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
-  constexpr std::optional<std::pair<color3<U>, ray<T>>> scatter(
-      const ray<T>& r_in, const hit_record<T>& rec, Gen& gen) const {
+  constexpr bool scatter(const ray<T>& r_in, const hit_record<T>& rec,
+                         color3<U>& attenuation, ray<T>& scattered,
+                         Gen& gen) const {
     auto reflected = reflect(r_in.direction.normalized(), rec.normal);
-    auto scattered =
-        ray(rec.p, reflected + fuzz * random_in_unit_sphere<T>(gen));
-    if (dot(scattered.direction, rec.normal) > 0)
-      return std::make_pair(albedo, scattered);
-    return std::nullopt;
+    attenuation = albedo;
+    scattered = ray(rec.p, reflected + fuzz * random_in_unit_sphere<T>(gen));
+    return dot(scattered.direction, rec.normal) > 0;
   }
 };
 
-template <concepts::arithmetic U, concepts::arithmetic S = double>
+template <concepts::arithmetic U,concepts::arithmetic S = double>
 struct dielectric {
   S ir;
   constexpr dielectric(S index_of_refraction) : ir(index_of_refraction) {}
 
-  template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
-  constexpr std::optional<std::pair<color3<U>, ray<T>>> scatter(
-      const ray<T>& r_in, const hit_record<T>& rec, Gen& gen) const {
+  template <concepts::arithmetic T,
+            std::uniform_random_bit_generator Gen>
+  constexpr bool scatter(const ray<T>& r_in, const hit_record<T>& rec,
+                         color3<U>& attenuation, ray<T>& scattered,
+                         Gen& gen) const {
     auto refraction_ratio = rec.front_face ? 1 / ir : ir;
     auto unit_direction = r_in.direction.normalized();
     auto cos_theta = std::min(dot(-unit_direction, rec.normal), 1.);
@@ -89,7 +92,9 @@ struct dielectric {
         cannot_refract || refractance(cos_theta, refraction_ratio) > dist(gen)
             ? reflect(unit_direction, rec.normal)
             : refract(unit_direction, rec.normal, refraction_ratio);
-    return std::make_pair(color3<U>(1, 1, 1), ray(rec.p, direction));
+    attenuation = color3<U>(1, 1, 1);
+    scattered = ray(rec.p, direction);
+    return true;
   }
 };
 

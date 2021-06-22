@@ -5,7 +5,6 @@
 
 #include <concepts>
 #include <type_traits>
-#include <optional>
 
 #include "concepts.hpp"
 #include "ray.hpp"
@@ -29,14 +28,17 @@ struct hit_record {
 
 template <concepts::arithmetic T, class Derived>
 struct hittable_interface {
-  constexpr std::optional<hit_record<T>> hit(const ray<T>& r, T t_min, T t_max) const {
-    return static_cast<const Derived*>(this)->hit_impl(r, t_min, t_max);
+  constexpr bool hit(const ray<T>& r, T t_min, T t_max,
+                     hit_record<T>& rec) const {
+    return static_cast<const Derived*>(this)->hit_impl(r, t_min, t_max, rec);
   }
 
-  // returns optioanl of pair of { color3<U> attenuation, ray<T> scattered }
   template <concepts::arithmetic U, std::uniform_random_bit_generator Gen>
-  constexpr std::optional<std::pair<color3<U>, ray<T>>> scatter(const ray<T>& r, const hit_record<T>& rec, Gen& gen) const {
-    return static_cast<const Derived*>(this)->template scatter_impl<U>(r, rec, gen);
+  constexpr bool scatter(const ray<T>& r, const hit_record<T>& rec,
+                         color3<U>& attenuation, ray<T>& scattered,
+                         Gen& gen) const {
+    return static_cast<const Derived*>(this)->template scatter_impl<U>(r, rec,attenuation, scattered,
+                                                                       gen);
   }
 };
 
@@ -44,7 +46,7 @@ namespace concepts {
 
 template <class H, class T>
 concept hittable =
-    arithmetic<T> && std::is_base_of_v<hittable_interface<T, H>, H>;
+    arithmetic<T>&& std::is_base_of_v<hittable_interface<T, H>, H>;
 
 }  // namespace concepts
 
