@@ -2,7 +2,6 @@
 #ifndef YK_RAYTRACING_SPHERE_H
 #define YK_RAYTRACING_SPHERE_H
 
-#include <optional>
 #include <random>
 
 #include "concepts.hpp"
@@ -22,36 +21,36 @@ struct sphere : public hittable_interface<T, sphere<T, M>> {
   constexpr sphere(pos3<T, world_tag> center, T radius, M material)
       : center(center), radius(radius), material(material) {}
 
-  constexpr std::optional<hit_record<T>> hit_impl(const ray<T>& r, T t_min,
-                                                  T t_max) const {
+  constexpr bool hit_impl(const ray<T>& r, T t_min, T t_max,
+                          hit_record<T>& rec) const {
     vec3<T> oc = r.origin - center;
     auto a = r.direction.length_squared();
     auto half_b = dot(oc, r.direction);
     auto c = oc.length_squared() - radius * radius;
     auto discriminant = half_b * half_b - a * c;
-    if (discriminant < 0) return std::nullopt;
+    if (discriminant < 0) return false;
     auto sqrtd = math::sqrt(discriminant);
 
     auto root = (-half_b - sqrtd) / a;
     if (root < t_min || t_max < root) {
       root = (-half_b + sqrtd) / a;
-      if (root < t_min || t_max < root) return std::nullopt;
+      if (root < t_min || t_max < root) return false;
     }
 
-    hit_record<T> rec = {};
     rec.t = root;
     rec.p = r.at(rec.t);
     auto outward_normal = (rec.p - center) / radius;
     rec.set_face_normal(r, outward_normal);
 
-    return rec;
+    return true;
   }
 
   template <concepts::arithmetic U, std::uniform_random_bit_generator Gen>
-  constexpr std::optional<std::pair<color3<U>, ray<T>>> scatter_impl(
-      const ray<T>& r, const hit_record<T>& rec, Gen& gen) const {
-        return material.scatter(r, rec, gen);
-      }
+  constexpr bool scatter_impl(const ray<T>& r,
+                              const hit_record<T>& reccolor3<U>& attenuation,
+                              ray<T> scattered, Gen& gen) const {
+    return material.scatter(r, rec, attenuation, scattered, gen);
+  }
 };
 
 template <concepts::arithmetic T, concepts::material M>
