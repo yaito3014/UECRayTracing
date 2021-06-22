@@ -30,14 +30,14 @@ template <concepts::arithmetic T, class Derived>
 struct hittable_interface {
   constexpr bool hit(const ray<T>& r, T t_min, T t_max,
                      hit_record<T>& rec) const {
-    return static_cast<const Derived*>(this)->hit_impl(r, t_min, t_max);
+    return static_cast<const Derived*>(this)->hit_impl(r, t_min, t_max, rec);
   }
 
   template <concepts::arithmetic U, std::uniform_random_bit_generator Gen>
   constexpr bool scatter(const ray<T>& r, const hit_record<T>& rec,
                          color3<U>& attenuation, ray<T>& scattered,
                          Gen& gen) const {
-    return static_cast<const Derived*>(this)->template scatter_impl<U>(r, rec,
+    return static_cast<const Derived*>(this)->template scatter_impl<U>(r, rec,attenuation, scattered,
                                                                        gen);
   }
 };

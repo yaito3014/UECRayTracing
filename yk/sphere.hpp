@@ -47,8 +47,8 @@ struct sphere : public hittable_interface<T, sphere<T, M>> {
 
   template <concepts::arithmetic U, std::uniform_random_bit_generator Gen>
   constexpr bool scatter_impl(const ray<T>& r,
-                              const hit_record<T>& reccolor3<U>& attenuation,
-                              ray<T> scattered, Gen& gen) const {
+                              const hit_record<T>& rec,color3<U>& attenuation,
+                              ray<T>& scattered, Gen& gen) const {
     return material.scatter(r, rec, attenuation, scattered, gen);
   }
 };

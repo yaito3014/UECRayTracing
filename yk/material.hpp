@@ -57,18 +57,18 @@ struct metal {
                          color3<U>& attenuation, ray<T>& scattered,
                          Gen& gen) const {
     auto reflected = reflect(r_in.direction.normalized(), rec.normal);
-    attenutaion = albedo;
+    attenuation = albedo;
     scattered = ray(rec.p, reflected + fuzz * random_in_unit_sphere<T>(gen));
     return dot(scattered.direction, rec.normal) > 0;
   }
 };
 
-template <concepts::arithmetic S = double>
+template <concepts::arithmetic U,concepts::arithmetic S = double>
 struct dielectric {
   S ir;
   constexpr dielectric(S index_of_refraction) : ir(index_of_refraction) {}
 
-  template <concepts::arithmetic T, concepts::arithmetic U,
+  template <concepts::arithmetic T,
             std::uniform_random_bit_generator Gen>
   constexpr bool scatter(const ray<T>& r_in, const hit_record<T>& rec,
                          color3<U>& attenuation, ray<T>& scattered,
@@ -92,7 +92,7 @@ struct dielectric {
         cannot_refract || refractance(cos_theta, refraction_ratio) > dist(gen)
             ? reflect(unit_direction, rec.normal)
             : refract(unit_direction, rec.normal, refraction_ratio);
-    attenutation = color3<U>(1, 1, 1);
+    attenuation = color3<U>(1, 1, 1);
     scattered = ray(rec.p, direction);
     return true;
   }
