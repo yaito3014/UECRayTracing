@@ -74,9 +74,8 @@ struct vec3 {
   }
 
   constexpr bool near_zero() const {
-    constexpr auto fabs = [](auto x) { return x > 0 ? x : -x; };
     constexpr auto s = 1e-8;
-    return (fabs(x) < s) && (fabs(y) < s) && (fabs(x) < s);
+    return (math::abs(x) < s) && (math::abs(y) < s) && (math::abs(x) < s);
   }
 
   constexpr bool operator==(const vec3 &) const = default;
@@ -199,6 +198,14 @@ constexpr auto cross(const vec3<T, Tag> &lhs, const vec3<U, Tag> &rhs) {
 template <concepts::arithmetic T, concepts::arithmetic U, concepts::tag Tag>
 constexpr auto reflect(const vec3<T, Tag> &vec, const vec3<U, Tag> &norm) {
   return vec - 2 * dot(vec, norm) * norm;
+}
+
+template <concepts::arithmetic T, concepts::arithmetic U, concepts::tag Tag, concepts::arithmetic S>
+constexpr auto refract(const vec3<T, Tag>& uv, const vec3<U, Tag>& norm, S etai_over_etat) {
+  auto cos_theta = std::min(dot(-uv, norm), 1.);
+  auto r_out_perp = etai_over_etat * (uv + cos_theta * norm);
+  auto r_out_parallel = -math::sqrt(math::abs(1 - r_out_perp.length_squared())) * norm;
+  return r_out_perp + r_out_parallel;
 }
 
 using vec3d = vec3<double>;

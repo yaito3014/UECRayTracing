@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <numbers>
 #include <numeric>
 #include <random>
 #include <ranges>
@@ -97,19 +98,36 @@ constexpr T transform_reduce(R&& r, T init, BinOp bin_op, UnaryOp unary_op) {
 
 template <concepts::arithmetic T = double>
 constexpr image_t render() {
-  const raytracer<T, double> tracer = {};
-  const camera<T> cam = {};
+  // const auto world =
+  //     hittable_list<T>{}
+  //         .add(sphere(pos3<T, world_tag>(0, 0, -1), 0.5,
+  //                     lambertian<color::value_type>({0.7, 0.3, 0.3})))
+  //         .add(sphere(pos3<T, world_tag>(0, -100.5, -1), 100.0,
+  //                     lambertian<color::value_type>({0.8, 0.8, 0.0})))
+  //         .add(sphere(pos3<T, world_tag>(-1.0, 0.0, -1.0), 0.5,
+  //                     dielectric<color::value_type>(1.5)))
+  //         .add(sphere(pos3<T, world_tag>(-1.0, 0.0, -1.0), -0.4,
+  //                     dielectric<color::value_type>(1.5)))
+  //         .add(sphere(pos3<T, world_tag>(1.0, 0.0, -1.0), 0.5,
+  //                     metal<color::value_type>({0.8, 0.6, 0.2}, 1.0)));
+
+  auto material_ground = lambertian(color(0.8, 0.8, 0.0));
+  auto material_center = lambertian(color(0.1, 0.2, 0.5));
+  auto material_left = dielectric<color::value_type>(1.5);
+  auto material_right = metal(color(0.8, 0.6, 0.2), 0.0);
 
   const auto world =
       hittable_list<T>{}
-          .add(sphere(pos3<T, world_tag>(0, 0, -1), 0.5,
-                      lambertian<color::value_type>({0.7, 0.3, 0.3})))
-          .add(sphere(pos3<T, world_tag>(0, -100.5, -1), 100.0,
-                      lambertian<color::value_type>({0.8, 0.8, 0.0})))
-          .add(sphere(pos3<T, world_tag>(-1.0, 0.0, -1.0), 0.5,
-                      metal<color::value_type>({0.8, 0.8, 0.8}, 0.3)))
-          .add(sphere(pos3<T, world_tag>(1.0, 0.0, -1.0), 0.5,
-                      metal<color::value_type>({0.8, 0.6, 0.2}, 1.0)));
+          .add(sphere(pos3<T, world_tag>(0.0, -100.5, -1.0), 100.0,
+                      material_ground))
+          .add(sphere(pos3<T, world_tag>(0.0, 0.0, -1.0), 0.5, material_center))
+          .add(sphere(pos3<T, world_tag>(-1.0, 0.0, -1.0), 0.5, material_left))
+          .add(
+              sphere(pos3<T, world_tag>(-1.0, 0.0, -1.0), -0.45, material_left))
+          .add(sphere(pos3<T, world_tag>(1.0, 0.0, -1.0), 0.5, material_right));
+
+  const camera<T> cam(pos3<T, world_tag>(-2, 2, 1), pos3<T, world_tag>(0, 0, -1), vec3<T>(0, 1, 0), 20.0, constants::aspect_ratio);
+  const raytracer<T, double> tracer = {};
 
   if (!std::is_constant_evaluated()) std::cout << "rendering..." << std::endl;
 
