@@ -129,10 +129,6 @@ constexpr image_t render() {
 
   image_t image = {};
 
-  constexpr std::string_view time = __TIME__;
-  constexpr std::uint32_t constexpr_seed =
-      std::accumulate(time.begin(), time.end(), std::uint32_t(0));
-
   for_each(
       views::cartesian_product(std::views::iota(0u, constants::image_height),
                                std::views::iota(0u, constants::image_width)),
@@ -164,6 +160,10 @@ constexpr image_t render() {
                            std::ceil(std::log10(constants::samples_per_pixel)) -
                            1)
                     << s << ')' << std::endl;
+
+              constexpr std::string_view time = __TIME__;
+              constexpr std::uint32_t constexpr_seed =
+                  std::accumulate(time.begin(), time.end(), std::uint32_t(0));
 
               mt19937 gen(std::is_constant_evaluated()
                               ? constexpr_seed +
