@@ -105,10 +105,10 @@ auto random_scene() {
   auto material3 = metal(color(0.7, 0.6, 0.5), 0.0);
 
   return hittable_list<T>{}
-      .add(sphere(pos3<T, world_tag>(0,-1000,0), 1000., ground_material))
-      .add(sphere(pos3<T, world_tag>(0, 1, 0), 1.0, material1))
-      .add(sphere(pos3<T, world_tag>(-4, 1, 0), 1.0, material2))
-      .add(sphere(pos3<T, world_tag>(4, 1, 0), 1.0, material3));
+      | sphere(pos3<T, world_tag>(0,-1000,0), 1000., ground_material)
+      | sphere(pos3<T, world_tag>(0, 1, 0), 1.0, material1)
+      | sphere(pos3<T, world_tag>(-4, 1, 0), 1.0, material2)
+      | sphere(pos3<T, world_tag>(4, 1, 0), 1.0, material3);
 }
 
 template <concepts::arithmetic T = double>
@@ -128,10 +128,6 @@ constexpr image_t render() {
   if (!std::is_constant_evaluated()) std::cout << "rendering..." << std::endl;
 
   image_t image = {};
-
-  constexpr std::string_view time = __TIME__;
-  constexpr std::uint32_t constexpr_seed =
-      std::accumulate(time.begin(), time.end(), std::uint32_t(0));
 
   for_each(
       views::cartesian_product(std::views::iota(0u, constants::image_height),
@@ -164,6 +160,10 @@ constexpr image_t render() {
                            std::ceil(std::log10(constants::samples_per_pixel)) -
                            1)
                     << s << ')' << std::endl;
+
+              constexpr std::string_view time = __TIME__;
+              constexpr std::uint32_t constexpr_seed =
+                  std::accumulate(time.begin(), time.end(), std::uint32_t(0));
 
               mt19937 gen(std::is_constant_evaluated()
                               ? constexpr_seed +
