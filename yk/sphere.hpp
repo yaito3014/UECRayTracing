@@ -18,11 +18,11 @@ struct sphere : public hittable_interface<T, sphere<T, M>> {
   T radius;
   M material;
 
-  constexpr sphere(pos3<T, world_tag> center, T radius, M material)
+  constexpr sphere(pos3<T, world_tag> center, T radius, M material) noexcept
       : center(center), radius(radius), material(material) {}
 
   constexpr bool hit_impl(const ray<T>& r, T t_min, T t_max,
-                          hit_record<T>& rec) const {
+                          hit_record<T>& rec) const noexcept {
     vec3<T> oc = r.origin - center;
     auto a = r.direction.length_squared();
     auto half_b = dot(oc, r.direction);
@@ -46,9 +46,9 @@ struct sphere : public hittable_interface<T, sphere<T, M>> {
   }
 
   template <concepts::arithmetic U, std::uniform_random_bit_generator Gen>
-  constexpr bool scatter_impl(const ray<T>& r,
-                              const hit_record<T>& rec,color3<U>& attenuation,
-                              ray<T>& scattered, Gen& gen) const {
+  constexpr bool scatter_impl(const ray<T>& r, const hit_record<T>& rec,
+                              color3<U>& attenuation, ray<T>& scattered,
+                              Gen& gen) const noexcept {
     return material.scatter(r, rec, attenuation, scattered, gen);
   }
 };

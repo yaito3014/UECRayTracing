@@ -73,7 +73,7 @@ using image_t =
 
 template <concepts::arithmetic T>
 constexpr color3b to_color3b(const color3<T>& from,
-                             std::uint32_t samples_per_pixel) {
+                             std::uint32_t samples_per_pixel) noexcept {
   auto [r, g, b] = from / samples_per_pixel;
   color3<T> color = {
       .r = math::sqrt(r),
@@ -97,18 +97,17 @@ constexpr T transform_reduce(R&& r, T init, BinOp bin_op, UnaryOp unary_op) {
 }
 
 template <concepts::arithmetic T>
-auto random_scene() {
-
+constexpr auto random_scene() noexcept {
   auto ground_material = lambertian(color(0.5, 0.5, 0.5));
   auto material1 = dielectric<color::value_type>(1.5);
   auto material2 = lambertian(color(0.4, 0.2, 0.1));
   auto material3 = metal(color(0.7, 0.6, 0.5), 0.0);
 
-  return hittable_list<T>{}
-      | sphere(pos3<T, world_tag>(0,-1000,0), 1000., ground_material)
-      | sphere(pos3<T, world_tag>(0, 1, 0), 1.0, material1)
-      | sphere(pos3<T, world_tag>(-4, 1, 0), 1.0, material2)
-      | sphere(pos3<T, world_tag>(4, 1, 0), 1.0, material3);
+  return hittable_list<T>{} |
+         sphere(pos3<T, world_tag>(0, -1000, 0), 1000., ground_material) |
+         sphere(pos3<T, world_tag>(0, 1, 0), 1.0, material1) |
+         sphere(pos3<T, world_tag>(-4, 1, 0), 1.0, material2) |
+         sphere(pos3<T, world_tag>(4, 1, 0), 1.0, material3);
 }
 
 template <concepts::arithmetic T = double>

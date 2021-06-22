@@ -3,8 +3,8 @@
 #ifndef YK_RAYTRACING_MATH_H
 #define YK_RAYTRACING_MATH_H
 
-#include <concepts>
 #include <cmath>
+#include <concepts>
 
 #include "concepts.hpp"
 
@@ -22,12 +22,12 @@ constexpr auto sqrt(T s) {
 };
 
 template <concepts::arithmetic T>
-constexpr T abs(T a) {
+constexpr T abs(T a) noexcept {
   return a > 0 ? a : -a;
 }
 
 template <concepts::arithmetic T, std::integral U>
-constexpr T pow(T a, U b) {
+constexpr T pow(T a, U b) noexcept {
   T res = 1;
   while (b) {
     if (b % 2) res *= a;
@@ -36,8 +36,8 @@ constexpr T pow(T a, U b) {
   return res;
 }
 
-using std::sin;
 using std::cos;
+using std::sin;
 using std::tan;
 
 }  // namespace yk::math
