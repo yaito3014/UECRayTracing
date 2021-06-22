@@ -42,11 +42,11 @@
 #endif  // YK_ENABLE_PARALLEL
 
 #ifndef YK_IMAGE_WIDTH
-#define YK_IMAGE_WIDTH 400
+#define YK_IMAGE_WIDTH 1200
 #endif  // !YK_IMAGE_WIDTH
 
 #ifndef YK_SPP
-#define YK_SPP 100
+#define YK_SPP 500
 #endif  // !YK_SPP
 
 #ifndef YK_MAX_DEPTH
@@ -57,7 +57,7 @@ namespace yk {
 
 namespace constants {
 
-constexpr double aspect_ratio = 16.0 / 9.0;
+constexpr double aspect_ratio = 3.0 / 2.0;
 constexpr std::uint32_t image_width = YK_IMAGE_WIDTH;
 constexpr std::uint32_t image_height =
     static_cast<std::uint32_t>(image_width / aspect_ratio);
@@ -96,37 +96,33 @@ constexpr T transform_reduce(R&& r, T init, BinOp bin_op, UnaryOp unary_op) {
                                std::ranges::end(r), init, bin_op, unary_op);
 }
 
+template <concepts::arithmetic T>
+auto random_scene() {
+
+  auto ground_material = lambertian(color(0.5, 0.5, 0.5));
+  auto material1 = dielectric<color::value_type>(1.5);
+  auto material2 = lambertian(color(0.4, 0.2, 0.1));
+  auto material3 = metal(color(0.7, 0.6, 0.5), 0.0);
+
+  return hittable_list<T>{}
+      .add(sphere(pos3<T, world_tag>(0,-1000,0), 1000., ground_material))
+      .add(sphere(pos3<T, world_tag>(0, 1, 0), 1.0, material1))
+      .add(sphere(pos3<T, world_tag>(-4, 1, 0), 1.0, material2))
+      .add(sphere(pos3<T, world_tag>(4, 1, 0), 1.0, material3));
+}
+
 template <concepts::arithmetic T = double>
 constexpr image_t render() {
-  // const auto world =
-  //     hittable_list<T>{}
-  //         .add(sphere(pos3<T, world_tag>(0, 0, -1), 0.5,
-  //                     lambertian<color::value_type>({0.7, 0.3, 0.3})))
-  //         .add(sphere(pos3<T, world_tag>(0, -100.5, -1), 100.0,
-  //                     lambertian<color::value_type>({0.8, 0.8, 0.0})))
-  //         .add(sphere(pos3<T, world_tag>(-1.0, 0.0, -1.0), 0.5,
-  //                     dielectric<color::value_type>(1.5)))
-  //         .add(sphere(pos3<T, world_tag>(-1.0, 0.0, -1.0), -0.4,
-  //                     dielectric<color::value_type>(1.5)))
-  //         .add(sphere(pos3<T, world_tag>(1.0, 0.0, -1.0), 0.5,
-  //                     metal<color::value_type>({0.8, 0.6, 0.2}, 1.0)));
+  const auto world = random_scene<T>();
 
-  auto material_ground = lambertian(color(0.8, 0.8, 0.0));
-  auto material_center = lambertian(color(0.1, 0.2, 0.5));
-  auto material_left = dielectric<color::value_type>(1.5);
-  auto material_right = metal(color(0.8, 0.6, 0.2), 0.0);
+  pos3<T, world_tag> lookfrom(13, 2, 3);
+  pos3<T, world_tag> lookat(0, 0, 0);
+  vec3<T> vup(0, 1, 0);
+  auto dist_to_focus = 10.0;
+  auto aperture = 0.1;
 
-  const auto world =
-      hittable_list<T>{}
-          .add(sphere(pos3<T, world_tag>(0.0, -100.5, -1.0), 100.0,
-                      material_ground))
-          .add(sphere(pos3<T, world_tag>(0.0, 0.0, -1.0), 0.5, material_center))
-          .add(sphere(pos3<T, world_tag>(-1.0, 0.0, -1.0), 0.5, material_left))
-          .add(
-              sphere(pos3<T, world_tag>(-1.0, 0.0, -1.0), -0.45, material_left))
-          .add(sphere(pos3<T, world_tag>(1.0, 0.0, -1.0), 0.5, material_right));
-
-  const camera<T> cam(pos3<T, world_tag>(-2, 2, 1), pos3<T, world_tag>(0, 0, -1), vec3<T>(0, 1, 0), 20.0, constants::aspect_ratio);
+  const camera<T> cam(lookfrom, lookat, vup, 20, constants::aspect_ratio,
+                      aperture, dist_to_focus);
   const raytracer<T, double> tracer = {};
 
   if (!std::is_constant_evaluated()) std::cout << "rendering..." << std::endl;
@@ -180,7 +176,7 @@ constexpr image_t render() {
               auto u = (x + dist(gen)) / constants::image_width;
               auto v = (constants::image_height - y - 1 + dist(gen)) /
                        constants::image_height;
-              return tracer.ray_color(cam.get_ray(u, v), world,
+              return tracer.ray_color(cam.get_ray(u, v, gen), world,
                                       constants::max_depth, gen);
             });
 

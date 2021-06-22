@@ -208,6 +208,34 @@ constexpr auto refract(const vec3<T, Tag>& uv, const vec3<U, Tag>& norm, S etai_
   return r_out_perp + r_out_parallel;
 }
 
+template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
+constexpr vec3<T> random_in_unit_sphere(Gen& gen) {
+  return vec3<T>::random(gen, -1, 1).normalize() *
+         uniform_real_distribution<T>(0.01, 0.99)(gen);
+}
+
+template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
+constexpr vec3<T> random_unit_vector(Gen& gen) {
+  return vec3<T>::random(gen, -1, 1).normalize();
+}
+
+template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
+constexpr vec3<T> random_in_hemisphere(const vec3<T>& normal, Gen& gen) {
+  vec3<T> in_unit_sphere = random_unit_vector<T>(gen);
+  return dot(in_unit_sphere, normal) > 0.0 ? in_unit_sphere : -in_unit_sphere;
+}
+
+template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
+constexpr vec3<T> random_in_unit_disk(Gen& gen) {
+  uniform_real_distribution<T> dist(-1,1);
+        auto p = vec3<T>(dist(gen), dist(gen), 0);
+        if (p.length_squared() >= 1)  {
+          uniform_real_distribution<T> dist(0,1);
+          p = p.normalized() * dist(gen);
+        }
+        return p;
+}
+
 using vec3d = vec3<double>;
 
 template <class T, concepts::tag Tag>

@@ -6,6 +6,7 @@
 #include <numbers>
 
 #include "concepts.hpp"
+#include "random.hpp"
 #include "ray.hpp"
 #include "vec3.hpp"
 
@@ -16,25 +17,29 @@ struct camera_tag : world_tag {};
 template <concepts::arithmetic T>
 struct camera {
   constexpr camera(pos3<T, world_tag> lookfrom, pos3<T, world_tag> lookat,
-                   vec3<T> vup, T vfov, T aspect_ratio) {
+                   vec3<T> vup, T vfov, T aspect_ratio, T aperture, T focus_dist) {
     auto theta = vfov * std::numbers::pi / 180;
     auto h = math::tan(theta / 2);
     auto viewport_height = 2.0 * h;
     auto viewport_width = aspect_ratio * viewport_height;
 
-    auto w = (lookfrom - lookat).normalized();
-    auto u = cross(vup, w).normalized();
-    auto v = cross(w, u);
+    w = (lookfrom - lookat).normalized();
+    u = cross(vup, w).normalized();
+    v = cross(w, u);
 
     origin = lookfrom;
-    horizontal = viewport_width * u;
-    vertical = viewport_height * v;
+    horizontal = focus_dist * viewport_width * u;
+    vertical = focus_dist * viewport_height * v;
     lower_left_corner =
-        pos3<T, camera_tag>(0, 0, 0) - horizontal / 2 - vertical / 2 - w;
+        pos3<T, camera_tag>(0, 0, 0) - horizontal / 2 - vertical / 2 - focus_dist * w;
+    lens_radius = aperture / 2;
   }
 
-  constexpr ray<T> get_ray(T u, T v) const {
-    return ray<T>(origin, (lower_left_corner + u * horizontal + v * vertical)
+  template<std::uniform_random_bit_generator Gen>
+  constexpr ray<T> get_ray(T s, T t, Gen& gen) const {
+    auto rd = lens_radius * random_in_unit_disk<T>(gen);
+    auto offset = u * rd.x + v * rd.y;
+    return ray<T>(origin + offset, (lower_left_corner + s * horizontal + t * vertical - offset)
                               .template to<default_tag>());
   }
 
@@ -42,6 +47,8 @@ struct camera {
   pos3<T, camera_tag> lower_left_corner;
   vec3<T> horizontal;
   vec3<T> vertical;
+  vec3<T> w,u,v;
+  T lens_radius;
 };
 
 }  // namespace yk

@@ -25,23 +25,6 @@ concept material = true;
 
 }  // namespace concepts
 
-template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
-constexpr vec3<T> random_in_unit_sphere(Gen& gen) {
-  return vec3<T>::random(gen, -1, 1).normalize() *
-         uniform_real_distribution<T>(0.01, 0.99)(gen);
-}
-
-template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
-constexpr vec3<T> random_unit_vector(Gen& gen) {
-  return vec3<T>::random(gen, -1, 1).normalize();
-}
-
-template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
-constexpr vec3<T> random_in_hemisphere(const vec3<T>& normal, Gen& gen) {
-  vec3<T> in_unit_sphere = random_unit_vector<T>(gen);
-  return dot(in_unit_sphere, normal) > 0.0 ? in_unit_sphere : -in_unit_sphere;
-}
-
 template <concepts::arithmetic U>
 struct lambertian {
   color3<U> albedo;
@@ -83,6 +66,7 @@ template <concepts::arithmetic U, concepts::arithmetic S = double>
 struct dielectric {
   S ir;
   constexpr dielectric(S index_of_refraction) : ir(index_of_refraction) {}
+
   template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
   constexpr std::optional<std::pair<color3<U>, ray<T>>> scatter(
       const ray<T>& r_in, const hit_record<T>& rec, Gen& gen) const {
