@@ -5,8 +5,10 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <random>
 
 #include "concepts.hpp"
+#include "random.hpp"
 
 namespace yk {
 
@@ -36,6 +38,16 @@ struct alignas(T) color3 {
         .r = std::clamp(r, min, max),
         .g = std::clamp(g, min, max),
         .b = std::clamp(b, min, max),
+    };
+  }
+
+  template <std::uniform_random_bit_generator Gen>
+  constexpr static color3 random(Gen &gen, T min, T max) noexcept {
+    uniform_real_distribution<T> dist(min, max);
+    return {
+        .r = dist(gen),
+        .g = dist(gen),
+        .b = dist(gen),
     };
   }
 

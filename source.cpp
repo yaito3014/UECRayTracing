@@ -71,6 +71,10 @@ using color = color3d;
 using image_t =
     std::array<color3b, constants::image_width * constants::image_height>;
 
+constexpr std::string_view time = __TIME__;
+constexpr std::uint32_t constexpr_seed =
+    std::accumulate(time.begin(), time.end(), std::uint32_t(0));
+
 template <concepts::arithmetic T>
 constexpr color3b to_color3b(const color3<T>& from,
                              std::uint32_t samples_per_pixel) noexcept {
@@ -103,7 +107,50 @@ constexpr auto random_scene() noexcept {
   auto material2 = lambertian(color(0.4, 0.2, 0.1));
   auto material3 = metal(color(0.7, 0.6, 0.5), 0.0);
 
-  return hittable_list<T>{} |
+  constexpr auto rnd = [](auto x) {
+    mt19937 gen(constexpr_seed + x);
+    uniform_real_distribution<T> dist(0, 1);
+    gen();
+    return dist(gen);
+  };
+
+  mt19937 gen(constexpr_seed);
+  uniform_real_distribution<T> dist(0, 1);
+
+  auto list = [&]<size_t... As>(std::index_sequence<As...>) {
+    return (hittable_list<T>{} | ... |
+            [&]<std::size_t A>(std::integral_constant<std::size_t, A>) {
+              return [&]<size_t... Bs>(std::index_sequence<Bs...>) {
+                return (
+                    hittable_list<T>{} | ... |
+                    [&]<std::size_t B>(std::integral_constant<std::size_t, B>) {
+                      pos3<T, world_tag> center(
+                          static_cast<ptrdiff_t>(A) - 10 + 0.9 * dist(gen), 0.2,
+                          static_cast<ptrdiff_t>(B) - 10 + 0.9 * dist(gen));
+                      constexpr auto M = rnd(A * 20 + B);
+                      if constexpr (M < 0.8) {
+                        auto albedo =
+                            color::random(gen, 0, 1) * color::random(gen, 0, 1);
+                        return sphere(center, 0.2, lambertian(albedo));
+                      } else if constexpr (M < 0.95) {
+                        auto albedo = color::random(gen, 0.5, 1);
+                        auto fuzz =
+                            uniform_real_distribution<color::value_type>(
+                                0, 0.5)(gen);
+                        return sphere(center, 0.2, metal(albedo, fuzz));
+                      } else {
+                        return sphere(center, 0.2,
+                                      dielectric<color::value_type>(1.5));
+                      }
+                      gen();
+                    }(std::integral_constant<std::size_t, Bs>{}));
+              }
+              (std::make_index_sequence<20>());
+            }(std::integral_constant<std::size_t, As>{}));
+  }
+  (std::make_index_sequence<20>());
+
+  return list |
          sphere(pos3<T, world_tag>(0, -1000, 0), 1000., ground_material) |
          sphere(pos3<T, world_tag>(0, 1, 0), 1.0, material1) |
          sphere(pos3<T, world_tag>(-4, 1, 0), 1.0, material2) |
@@ -159,10 +206,6 @@ constexpr image_t render() {
                            std::ceil(std::log10(constants::samples_per_pixel)) -
                            1)
                     << s << ')' << std::endl;
-
-              constexpr std::string_view time = __TIME__;
-              constexpr std::uint32_t constexpr_seed =
-                  std::accumulate(time.begin(), time.end(), std::uint32_t(0));
 
               mt19937 gen(std::is_constant_evaluated()
                               ? constexpr_seed +
