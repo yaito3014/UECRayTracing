@@ -7,6 +7,7 @@
 #include <optional>
 #include <random>
 #include <utility>
+#include <algorithm>
 
 #include "color.hpp"
 #include "concepts.hpp"
@@ -62,13 +63,14 @@ struct lambertian {
 template <concepts::arithmetic U>
 struct metal {
   color3<U> albedo;
-  constexpr metal(const color3<U>& a) : albedo(a) {}
+  U fuzz;
+  constexpr metal(const color3<U>& albedo, U fuzz) : albedo(albedo), fuzz(std::clamp<U>(fuzz, 0, 1)) {}
 
   template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
   constexpr std::optional<std::pair<color3<U>, ray<T>>> scatter(
-      const ray<T>& r_in, const hit_record<T>& rec, Gen&) const {
+      const ray<T>& r_in, const hit_record<T>& rec, Gen& gen) const {
     auto reflected = reflect(r_in.direction.normalized(), rec.normal);
-    auto scattered = ray(rec.p, reflected);
+    auto scattered = ray(rec.p, reflected + fuzz * random_in_unit_sphere<T>(gen));
     if (dot(scattered.direction, rec.normal) > 0)
       return std::make_pair(albedo, scattered);
     return std::nullopt;

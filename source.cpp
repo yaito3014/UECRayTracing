@@ -107,9 +107,9 @@ constexpr image_t render() {
           .add(sphere(pos3<T, world_tag>(0, -100.5, -1), 100.0,
                       lambertian<color::value_type>({0.8, 0.8, 0.0})))
           .add(sphere(pos3<T, world_tag>(-1.0, 0.0, -1.0), 0.5,
-                      metal<color::value_type>({0.8, 0.8, 0.8})))
+                      metal<color::value_type>({0.8, 0.8, 0.8}, 0.3)))
           .add(sphere(pos3<T, world_tag>(1.0, 0.0, -1.0), 0.5,
-                      metal<color::value_type>({0.8, 0.6, 0.2})));
+                      metal<color::value_type>({0.8, 0.6, 0.2}, 1.0)));
 
   if (!std::is_constant_evaluated()) std::cout << "rendering..." << std::endl;
 
