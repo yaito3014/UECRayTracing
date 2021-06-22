@@ -28,12 +28,12 @@ template <concepts::arithmetic U>
 struct lambertian {
   color3<U> albedo;
 
-  constexpr lambertian(const color3<U>& albedo) : albedo(albedo) {}
+  constexpr lambertian(const color3<U>& albedo) noexcept : albedo(albedo) {}
 
   template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
   constexpr bool scatter(const ray<T>&, const hit_record<T>& rec,
                          color3<U>& attenuation, ray<T>& scattered,
-                         Gen& gen) const {
+                         Gen& gen) const noexcept {
     auto scatter_direction = rec.normal + random_unit_vector<T>(gen);
 
     // Catch degenerate scatter direction
@@ -49,7 +49,7 @@ template <concepts::arithmetic U>
 struct metal {
   color3<U> albedo;
   U fuzz;
-  constexpr metal(const color3<U>& albedo, U fuzz)
+  constexpr metal(const color3<U>& albedo, U fuzz) noexcept
       : albedo(albedo), fuzz(std::clamp<U>(fuzz, 0, 1)) {}
 
   template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
@@ -63,16 +63,16 @@ struct metal {
   }
 };
 
-template <concepts::arithmetic U,concepts::arithmetic S = double>
+template <concepts::arithmetic U, concepts::arithmetic S = double>
 struct dielectric {
   S ir;
-  constexpr dielectric(S index_of_refraction) : ir(index_of_refraction) {}
+  constexpr dielectric(S index_of_refraction) noexcept
+      : ir(index_of_refraction) {}
 
-  template <concepts::arithmetic T,
-            std::uniform_random_bit_generator Gen>
+  template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
   constexpr bool scatter(const ray<T>& r_in, const hit_record<T>& rec,
                          color3<U>& attenuation, ray<T>& scattered,
-                         Gen& gen) const {
+                         Gen& gen) const noexcept {
     auto refraction_ratio = rec.front_face ? 1 / ir : ir;
     auto unit_direction = r_in.direction.normalized();
     auto cos_theta = std::min(dot(-unit_direction, rec.normal), 1.);
@@ -80,7 +80,7 @@ struct dielectric {
     bool cannot_refract = refraction_ratio * sin_theta > 1;
 
     auto refractance = [](concepts::arithmetic auto cosine,
-                          concepts::arithmetic auto ref_idx) {
+                          concepts::arithmetic auto ref_idx) noexcept {
       auto r0 = (1 - ref_idx) / (1 + ref_idx);
       r0 = r0 * r0;
       return r0 + (1 - r0) * math::pow((1 - cosine), 5);
