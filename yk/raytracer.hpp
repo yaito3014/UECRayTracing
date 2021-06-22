@@ -24,10 +24,11 @@ struct raytracer {
                 << ", " << r.direction.y << ", " << r.direction.z << ") }"
                 << '\n';
     if (depth == 0) return color3<U>(0, 0, 0);
-    if (auto rec = world.hit(r, 0.001, std::numeric_limits<T>::infinity());
-        rec) {
-      if (auto opt = world.template scatter<U>(r, rec.value(), gen); opt) {
-        const auto& [att, scattered] = opt.value();
+    hit_record<T> rec = {};
+    if (world.hit(r, 0.001, std::numeric_limits<T>::infinity(), rec)) {
+      color3<U> att;
+      ray<T> scattered;
+      if (world.template scatter<U>(r, rec, att, scattered, gen)) {
         return ray_color(scattered, world, depth - 1, gen, att * attenuation);
       } else
         return color3<U>(0, 0, 0);

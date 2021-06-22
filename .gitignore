@@ -1,10 +1,9 @@
-﻿################################################################################
-# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
-################################################################################
-
-/Debug
-/.vs
+﻿/Debug
+/.vs*
 /UECRayTracing.vcxproj.user
 /UECRayTracing.vcxproj.filters
 /UECRayTracing.vcxproj
 /UECRayTracing.sln
+
+/image*
+/raytrace*

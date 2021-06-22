@@ -105,10 +105,10 @@ auto random_scene() {
   auto material3 = metal(color(0.7, 0.6, 0.5), 0.0);
 
   return hittable_list<T>{}
-      .add(sphere(pos3<T, world_tag>(0,-1000,0), 1000., ground_material))
-      .add(sphere(pos3<T, world_tag>(0, 1, 0), 1.0, material1))
-      .add(sphere(pos3<T, world_tag>(-4, 1, 0), 1.0, material2))
-      .add(sphere(pos3<T, world_tag>(4, 1, 0), 1.0, material3));
+      | sphere(pos3<T, world_tag>(0,-1000,0), 1000., ground_material)
+      | sphere(pos3<T, world_tag>(0, 1, 0), 1.0, material1)
+      | sphere(pos3<T, world_tag>(-4, 1, 0), 1.0, material2)
+      | sphere(pos3<T, world_tag>(4, 1, 0), 1.0, material3);
 }
 
 template <concepts::arithmetic T = double>
