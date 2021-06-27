@@ -273,13 +273,13 @@ class uniform_real_distribution {
 
   template <typename UniformRandomNumberGenerator>
   constexpr result_type operator()(
-      UniformRandomNumberGenerator& urng) noexcept {
+      UniformRandomNumberGenerator& urng) const noexcept {
     return this->operator()(urng, M_param);
   }
 
   template <typename UniformRandomNumberGenerator>
   constexpr result_type operator()(UniformRandomNumberGenerator& urng,
-                                   const param_type& p) noexcept {
+                                   const param_type& p) const noexcept {
     detail::Adaptor<UniformRandomNumberGenerator, result_type> aurng(urng);
     return (aurng() * (p.b() - p.a())) + p.a();
   }
