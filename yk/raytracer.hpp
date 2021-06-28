@@ -23,7 +23,7 @@ struct raytracer {
     if (!std::is_constant_evaluated() && verbose > 2)
       std::cout << "ray { origin : (" << r.origin.x << ", " << r.origin.y
                 << ", " << r.origin.z << "), direction : (" << r.direction.x
-                << ", " << r.direction.y << ", " << r.direction.z << ") }"
+                << ", " << r.direction.y << ", " << r.direction.z << "), time : " << r.time << " }"
                 << '\n';
     if (depth == 0) return color3<U>(0, 0, 0);
     hit_record<T> rec = {};

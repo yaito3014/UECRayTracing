@@ -30,6 +30,7 @@
 #include "yk/hittable_list.hpp"
 #include "yk/material.hpp"
 #include "yk/math.hpp"
+#include "yk/moving_sphere.hpp"
 #include "yk/random.hpp"
 #include "yk/ray.hpp"
 #include "yk/sphere.hpp"
@@ -42,11 +43,11 @@
 #endif  // YK_ENABLE_PARALLEL
 
 #ifndef YK_IMAGE_WIDTH
-#define YK_IMAGE_WIDTH 1200
+#define YK_IMAGE_WIDTH 400
 #endif  // !YK_IMAGE_WIDTH
 
 #ifndef YK_SPP
-#define YK_SPP 500
+#define YK_SPP 100
 #endif  // !YK_SPP
 
 #ifndef YK_MAX_DEPTH
@@ -57,7 +58,7 @@ namespace yk {
 
 namespace constants {
 
-constexpr double aspect_ratio = 3.0 / 2.0;
+constexpr double aspect_ratio = 16.0 / 9.0;
 constexpr std::uint32_t image_width = YK_IMAGE_WIDTH;
 constexpr std::uint32_t image_height =
     static_cast<std::uint32_t>(image_width / aspect_ratio);
@@ -137,7 +138,8 @@ constexpr auto random_scene() noexcept {
                     if constexpr (M < 0.8) {
                       auto albedo =
                           color::random(gen, 0, 1) * color::random(gen, 0, 1);
-                      return sphere(center, 0.2, lambertian(albedo));
+                      auto center2 = center + vec3<T>(0, dist(gen) / 2, 0);
+                      return moving_sphere(center, center2, 0.0, 1.0, 0.2, lambertian(albedo));
                     } else if constexpr (M < 0.95) {
                       auto albedo = color::random(gen, 0.5, 1);
                       auto fuzz = uniform_real_distribution<color::value_type>(
@@ -176,7 +178,7 @@ constexpr image_t render() {
   auto aperture = 0.1;
 
   const camera<T> cam(lookfrom, lookat, vup, 20, constants::aspect_ratio,
-                      aperture, dist_to_focus);
+                      aperture, dist_to_focus, 0, 1);
   const raytracer<T, double> tracer = {};
 
   if (!std::is_constant_evaluated()) std::cout << "rendering..." << std::endl;

@@ -31,7 +31,7 @@ struct lambertian {
   constexpr lambertian(const color3<U>& albedo) noexcept : albedo(albedo) {}
 
   template <concepts::arithmetic T, std::uniform_random_bit_generator Gen>
-  constexpr bool scatter(const ray<T>&, const hit_record<T>& rec,
+  constexpr bool scatter(const ray<T>& r_in, const hit_record<T>& rec,
                          color3<U>& attenuation, ray<T>& scattered,
                          Gen& gen) const noexcept {
     auto scatter_direction = rec.normal + random_unit_vector<T>(gen);
@@ -40,7 +40,7 @@ struct lambertian {
     if (scatter_direction.near_zero()) scatter_direction = rec.normal;
 
     attenuation = albedo;
-    scattered = ray(rec.p, scatter_direction);
+    scattered = ray<T>(rec.p, scatter_direction, r_in.time);
     return true;
   }
 };
@@ -58,7 +58,7 @@ struct metal {
                          Gen& gen) const {
     auto reflected = reflect(r_in.direction.normalized(), rec.normal);
     attenuation = albedo;
-    scattered = ray(rec.p, reflected + fuzz * random_in_unit_sphere<T>(gen));
+    scattered = ray<T>(rec.p, reflected + fuzz * random_in_unit_sphere<T>(gen), r_in.time);
     return dot(scattered.direction, rec.normal) > 0;
   }
 };
@@ -93,7 +93,7 @@ struct dielectric {
             ? reflect(unit_direction, rec.normal)
             : refract(unit_direction, rec.normal, refraction_ratio);
     attenuation = color3<U>(1, 1, 1);
-    scattered = ray(rec.p, direction);
+    scattered = ray<T>(rec.p, direction, r_in.time);
     return true;
   }
 };

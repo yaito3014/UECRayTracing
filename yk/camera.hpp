@@ -18,7 +18,8 @@ template <concepts::arithmetic T>
 struct camera {
   constexpr camera(pos3<T, world_tag> lookfrom, pos3<T, world_tag> lookat,
                    vec3<T> vup, T vfov, T aspect_ratio, T aperture,
-                   T focus_dist) noexcept {
+                   T focus_dist, T time0, T time1) noexcept
+      : time0(time0), time1(time1) {
     auto theta = vfov * std::numbers::pi / 180;
     auto h = math::tan(theta / 2);
     auto viewport_height = 2.0 * h;
@@ -42,7 +43,8 @@ struct camera {
     auto offset = u * rd.x + v * rd.y;
     return ray<T>(origin + offset,
                   (lower_left_corner + s * horizontal + t * vertical - offset)
-                      .template to<default_tag>());
+                      .template to<default_tag>(),
+                  uniform_real_distribution<T>(time0, time1)(gen));
   }
 
   pos3<T, world_tag> origin;
@@ -51,6 +53,7 @@ struct camera {
   vec3<T> vertical;
   vec3<T> w, u, v;
   T lens_radius;
+  T time0, time1;
 };
 
 }  // namespace yk

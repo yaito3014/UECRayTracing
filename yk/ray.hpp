@@ -12,6 +12,7 @@ template <concepts::arithmetic T>
 struct ray {
   pos3<T, world_tag> origin;
   vec3<T> direction;
+  T time = 0;
 
   template <concepts::arithmetic U>
   constexpr pos3<T, world_tag> at(U scalar) const noexcept {
