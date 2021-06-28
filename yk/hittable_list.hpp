@@ -7,7 +7,6 @@
 #include <tuple>
 #include <utility>
 
-#include "../thirdparty/harmony.hpp"
 #include "concepts.hpp"
 #include "hittable.hpp"
 #include "ray.hpp"
@@ -20,58 +19,59 @@ struct hittable_list : public hittable_interface<T, hittable_list<T, Hs...>> {
   std::tuple<Hs...> objects = {};
 
   constexpr hittable_list() = default;
-  constexpr hittable_list(std::tuple<Hs...> objects_)
+  constexpr hittable_list(std::tuple<Hs...> objects_) noexcept
       : objects(std::move(objects_)) {}
 
-  template <concepts::hittable<T> H, concepts::hittable<T>... Args>
-  [[nodiscard]] constexpr hittable_list<T, Hs..., H> add(H h, Args... args) {
-    return hittable_list<T, Hs..., H>(std::tuple_cat(
-        std::move(objects), std::tuple(std::move(h), std::move(args)...)));
-  }
-
-  constexpr std::optional<hit_record<T>> hit_impl(const ray<T>& r, T t_min,
-                                                  T t_max) const {
-    using namespace harmony::monadic_op;
+  constexpr bool hit_impl(const ray<T>& r, T t_min, T t_max,
+                          hit_record<T>& rec) const noexcept {
+    hit_record<T> temp_rec = {};
+    bool hit_anything = false;
     auto closest_so_far = t_max;
-    return [&]<std::size_t... Is>(std::index_sequence<Is...>) {
-      auto op = [&](concepts::hittable<T> auto h, std::size_t index) {
-        return h.hit(r, t_min, closest_so_far) |
-               and_then([&](hit_record<T> rec) {
-                 closest_so_far = rec.t;
-                 rec.id = index;
-                 return std::optional(rec);
-               });
+    return [&]<std::size_t... Is>(std::index_sequence<Is...>) noexcept {
+      auto op = [&](const concepts::hittable<T> auto& h,
+                    std::size_t index) noexcept {
+        if (!h.hit(r, t_min, closest_so_far, temp_rec)) return;
+        closest_so_far = temp_rec.t;
+        temp_rec.id = index;
+        rec = temp_rec;
+        hit_anything = true;
       };
-      return (std::optional<hit_record<T>>{} | ... |
-              fold(
-                  [&](const hit_record<T>& rec) {
-                    return *(op(std::get<Is>(objects), Is) |
-                             or_else([&](std::nullopt_t) {
-                               return std::optional(rec);
-                             }));
-                  },
-                  [&](std::nullopt_t) -> std::optional<hit_record<T>> {
-                    return op(std::get<Is>(objects), Is);
-                  }));
+      (void)(op(std::get<Is>(objects), Is), ...);
+      return hit_anything;
     }
     (std::index_sequence_for<Hs...>());
   }
 
   template <concepts::arithmetic U, std::uniform_random_bit_generator Gen>
-  constexpr std::optional<std::pair<color3<U>, ray<T>>> scatter(
-      const ray<T>& r, const hit_record<T>& rec, Gen& gen) const {
-    using namespace harmony::monadic_op;
-    return [&]<size_t... Is>(std::index_sequence<Is...>) {
-      return (std::optional<std::pair<color3<U>, ray<T>>>{} | ... |
-              or_else([&](std::nullopt_t) {
-                return rec.id == Is ? std::get<Is>(objects).template scatter<U>(
-                                          r, rec, gen)
-                                    : std::nullopt;
-              }));
+  constexpr bool scatter(const ray<T>& r, const hit_record<T>& rec,
+                         color3<U>& attenuation, ray<T>& scattered,
+                         Gen& gen) const noexcept {
+    return [&]<size_t... Is>(std::index_sequence<Is...>) noexcept {
+      auto op = [&](const concepts::hittable<T> auto& h,
+                    std::size_t index) noexcept {
+        return rec.id == index &&
+               h.scatter(r, rec, attenuation, scattered, gen);
+      };
+      return (op(std::get<Is>(objects), Is) || ...);
     }
     (std::index_sequence_for<Hs...>());
   }
 };
+
+template <concepts::arithmetic T, concepts::hittable<T>... Hs, class H>
+  requires concepts::hittable<std::remove_cvref_t<H>, T>
+[[nodiscard]] constexpr hittable_list<T, Hs..., std::remove_cvref_t<H>> operator|(
+    const hittable_list<T, Hs...>& lhs, H&& rhs) noexcept {
+  return {std::tuple_cat(lhs.objects, std::make_tuple(std::forward<H>(rhs)))};
+}
+
+template <concepts::arithmetic T, concepts::hittable<T>... Hs, class H>
+  requires concepts::hittable<std::remove_cvref_t<H>, T>
+[[nodiscard]] constexpr hittable_list<T, Hs..., std::remove_cvref_t<H>> operator|(
+    hittable_list<T, Hs...>&& lhs, H&& rhs) noexcept {
+  return {std::tuple_cat(std::move(lhs.objects),
+                         std::make_tuple(std::forward<H>(rhs)))};
+}
 
 }  // namespace yk
 

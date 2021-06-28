@@ -22,16 +22,16 @@ struct xor128 {
   uint32_t w = 88675123;
 
   using result_type = uint32_t;
-  constexpr static result_type min() {
+  constexpr static result_type min() noexcept {
     return std::numeric_limits<uint32_t>::min();
   }
-  constexpr static result_type max() {
+  constexpr static result_type max() noexcept {
     return std::numeric_limits<uint32_t>::max();
   }
 
-  constexpr xor128(uint32_t seed) : w(88675123 ^ seed) {}
+  constexpr xor128(uint32_t seed) noexcept : w(88675123 ^ seed) {}
 
-  constexpr uint32_t operator()() {
+  constexpr uint32_t operator()() noexcept {
     uint32_t t = x ^ (x << 11);
     x = y;
     y = z;
@@ -62,11 +62,14 @@ class mersenne_twister_engine {
   static constexpr result_type initialization_multiplier = f;
   static constexpr result_type default_seed = 5489u;
 
-  constexpr mersenne_twister_engine() : mersenne_twister_engine(default_seed) {}
+  constexpr mersenne_twister_engine() noexcept
+      : mersenne_twister_engine(default_seed) {}
 
-  constexpr explicit mersenne_twister_engine(result_type sd) { seed(sd); }
+  constexpr explicit mersenne_twister_engine(result_type sd) noexcept {
+    seed(sd);
+  }
 
-  constexpr void seed(result_type sd = default_seed) {
+  constexpr void seed(result_type sd = default_seed) noexcept {
     M_x[0] =
         (UIntType(1) << w) ? UIntType(sd) % (UIntType(1) << w) : UIntType(sd);
     for (size_t i = 1; i < state_size; ++i) {
@@ -80,11 +83,11 @@ class mersenne_twister_engine {
     M_p = state_size;
   }
 
-  static constexpr result_type min() { return 0; }
+  static constexpr result_type min() noexcept { return 0; }
 
-  static constexpr result_type max() { return (UIntType(1) << w) - 1; }
+  static constexpr result_type max() noexcept { return (UIntType(1) << w) - 1; }
 
-  constexpr void discard(unsigned long long z) {
+  constexpr void discard(unsigned long long z) noexcept {
     while (z > state_size - M_p) {
       z -= state_size - M_p;
       M_gen_rand();
@@ -92,7 +95,7 @@ class mersenne_twister_engine {
     M_p += z;
   }
 
-  constexpr result_type operator()() {
+  constexpr result_type operator()() noexcept {
     if (M_p >= state_size) M_gen_rand();
 
     result_type z = M_x[M_p++];
@@ -104,14 +107,15 @@ class mersenne_twister_engine {
     return z;
   }
 
-  constexpr friend bool operator==(const mersenne_twister_engine& lhs,
-                                   const mersenne_twister_engine& rhs) {
+  constexpr friend bool operator==(
+      const mersenne_twister_engine& lhs,
+      const mersenne_twister_engine& rhs) noexcept {
     return (std::equal(lhs.M_x, lhs.M_x + state_size, rhs.M_x) &&
             lhs.M_p == rhs.M_p);
   }
 
  private:
-  constexpr void M_gen_rand() {
+  constexpr void M_gen_rand() noexcept {
     const UIntType upper_mask = (~UIntType()) << r;
     const UIntType lower_mask = ~upper_mask;
 
@@ -141,7 +145,7 @@ inline bool operator!=(
     const mersenne_twister_engine<UIntType, w, n, m, r, a, u, d, s, b, t, c, l,
                                   f>& lhs,
     const mersenne_twister_engine<UIntType, w, n, m, r, a, u, d, s, b, t, c, l,
-                                  f>& rhs) {
+                                  f>& rhs) noexcept {
   return !(lhs == rhs);
 }
 
@@ -159,7 +163,8 @@ typedef mersenne_twister_engine<
 namespace detail {
 
 template <typename RealType, size_t bits, typename UniformRandomNumberGenerator>
-constexpr RealType generate_canonical(UniformRandomNumberGenerator& urng) {
+constexpr RealType generate_canonical(
+    UniformRandomNumberGenerator& urng) noexcept {
   static_assert(std::is_floating_point<RealType>::value,
                 "template argument must be a floating point type");
 
@@ -188,13 +193,13 @@ struct Adaptor {
                 "template argument must be a floating point type");
 
  public:
-  constexpr Adaptor(Engine& g) : M_g(g) {}
+  constexpr Adaptor(Engine& g) noexcept : M_g(g) {}
 
-  constexpr DInputType min() const { return DInputType(0); }
+  constexpr DInputType min() const noexcept { return DInputType(0); }
 
-  constexpr DInputType max() const { return DInputType(1); }
+  constexpr DInputType max() const noexcept { return DInputType(1); }
 
-  constexpr DInputType operator()() {
+  constexpr DInputType operator()() noexcept {
     return generate_canonical<DInputType,
                               std::numeric_limits<DInputType>::digits, Engine>(
         M_g);
@@ -217,22 +222,22 @@ class uniform_real_distribution {
   struct param_type {
     typedef uniform_real_distribution<RealType> distribution_type;
 
-    constexpr param_type() : param_type(0) {}
+    constexpr param_type() noexcept : param_type(0) {}
 
-    constexpr explicit param_type(RealType a, RealType b = RealType(1))
+    constexpr explicit param_type(RealType a, RealType b = RealType(1)) noexcept
         : M_a(a), M_b(b) {}
 
-    constexpr result_type a() const { return M_a; }
+    constexpr result_type a() const noexcept { return M_a; }
 
-    constexpr result_type b() const { return M_b; }
+    constexpr result_type b() const noexcept { return M_b; }
 
     constexpr friend bool operator==(const param_type& p1,
-                                     const param_type& p2) {
+                                     const param_type& p2) noexcept {
       return p1.M_a == p2.M_a && p1.M_b == p2.M_b;
     }
 
     constexpr friend bool operator!=(const param_type& p1,
-                                     const param_type& p2) {
+                                     const param_type& p2) noexcept {
       return !(p1 == p2);
     }
 
@@ -242,43 +247,46 @@ class uniform_real_distribution {
   };
 
  public:
-  constexpr uniform_real_distribution() : uniform_real_distribution(0.0) {}
+  constexpr uniform_real_distribution() noexcept
+      : uniform_real_distribution(0.0) {}
 
-  constexpr explicit uniform_real_distribution(RealType a,
-                                               RealType b = RealType(1))
+  constexpr explicit uniform_real_distribution(
+      RealType a, RealType b = RealType(1)) noexcept
       : M_param(a, b) {}
 
-  constexpr explicit uniform_real_distribution(const param_type& p)
+  constexpr explicit uniform_real_distribution(const param_type& p) noexcept
       : M_param(p) {}
 
-  constexpr void reset() {}
+  constexpr void reset() noexcept {}
 
-  constexpr result_type a() const { return M_param.a(); }
+  constexpr result_type a() const noexcept { return M_param.a(); }
 
-  constexpr result_type b() const { return M_param.b(); }
+  constexpr result_type b() const noexcept { return M_param.b(); }
 
-  constexpr param_type param() const { return M_param; }
+  constexpr param_type param() const noexcept { return M_param; }
 
-  constexpr void param(const param_type& param) { M_param = param; }
+  constexpr void param(const param_type& param) noexcept { M_param = param; }
 
-  constexpr result_type min() const { return this->a(); }
+  constexpr result_type min() const noexcept { return this->a(); }
 
-  constexpr result_type max() const { return this->b(); }
+  constexpr result_type max() const noexcept { return this->b(); }
 
   template <typename UniformRandomNumberGenerator>
-  constexpr result_type operator()(UniformRandomNumberGenerator& urng) {
+  constexpr result_type operator()(
+      UniformRandomNumberGenerator& urng) const noexcept {
     return this->operator()(urng, M_param);
   }
 
   template <typename UniformRandomNumberGenerator>
   constexpr result_type operator()(UniformRandomNumberGenerator& urng,
-                                   const param_type& p) {
+                                   const param_type& p) const noexcept {
     detail::Adaptor<UniformRandomNumberGenerator, result_type> aurng(urng);
     return (aurng() * (p.b() - p.a())) + p.a();
   }
 
-  constexpr friend bool operator==(const uniform_real_distribution& d1,
-                                   const uniform_real_distribution& d2) {
+  constexpr friend bool operator==(
+      const uniform_real_distribution& d1,
+      const uniform_real_distribution& d2) noexcept {
     return d1.M_param == d2.M_param;
   }
 
@@ -289,7 +297,7 @@ class uniform_real_distribution {
 template <typename IntType>
 constexpr inline bool operator!=(
     const std::uniform_real_distribution<IntType>& d1,
-    const std::uniform_real_distribution<IntType>& d2) {
+    const std::uniform_real_distribution<IntType>& d2) noexcept {
   return !(d1 == d2);
 }
 

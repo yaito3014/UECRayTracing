@@ -14,7 +14,7 @@ struct ray {
   vec3<T> direction;
 
   template <concepts::arithmetic U>
-  constexpr pos3<T, world_tag> at(U scalar) const {
+  constexpr pos3<T, world_tag> at(U scalar) const noexcept {
     return origin + direction * scalar;
   }
 };

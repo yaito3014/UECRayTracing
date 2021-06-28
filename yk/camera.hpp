@@ -3,7 +3,10 @@
 #ifndef YK_RAYTRACING_CAMERA_H
 #define YK_RAYTRACING_CAMERA_H
 
+#include <numbers>
+
 #include "concepts.hpp"
+#include "random.hpp"
 #include "ray.hpp"
 #include "vec3.hpp"
 
@@ -13,28 +16,41 @@ struct camera_tag : world_tag {};
 
 template <concepts::arithmetic T>
 struct camera {
-  constexpr camera() {
-    auto aspect_ratio = 16.0 / 9.0;
-    auto viewport_height = 2.0;
+  constexpr camera(pos3<T, world_tag> lookfrom, pos3<T, world_tag> lookat,
+                   vec3<T> vup, T vfov, T aspect_ratio, T aperture,
+                   T focus_dist) noexcept {
+    auto theta = vfov * std::numbers::pi / 180;
+    auto h = math::tan(theta / 2);
+    auto viewport_height = 2.0 * h;
     auto viewport_width = aspect_ratio * viewport_height;
-    auto focal_length = 1.0;
 
-    origin = pos3<T, world_tag>(0, 0, 0);
-    horizontal = vec3<T>(viewport_width, 0.0, 0.0);
-    vertical = vec3<T>(0.0, viewport_height, 0.0);
+    w = (lookfrom - lookat).normalized();
+    u = cross(vup, w).normalized();
+    v = cross(w, u);
+
+    origin = lookfrom;
+    horizontal = focus_dist * viewport_width * u;
+    vertical = focus_dist * viewport_height * v;
     lower_left_corner = pos3<T, camera_tag>(0, 0, 0) - horizontal / 2 -
-                        vertical / 2 - vec3<T>(0, 0, focal_length);
+                        vertical / 2 - focus_dist * w;
+    lens_radius = aperture / 2;
   }
 
-  constexpr ray<T> get_ray(T u, T v) const {
-    return ray<T>(origin, (lower_left_corner + u * horizontal + v * vertical)
-                              .template to<default_tag>());
+  template <std::uniform_random_bit_generator Gen>
+  constexpr ray<T> get_ray(T s, T t, Gen& gen) const noexcept {
+    auto rd = lens_radius * random_in_unit_disk<T>(gen);
+    auto offset = u * rd.x + v * rd.y;
+    return ray<T>(origin + offset,
+                  (lower_left_corner + s * horizontal + t * vertical - offset)
+                      .template to<default_tag>());
   }
 
   pos3<T, world_tag> origin;
   pos3<T, camera_tag> lower_left_corner;
   vec3<T> horizontal;
   vec3<T> vertical;
+  vec3<T> w, u, v;
+  T lens_radius;
 };
 
 }  // namespace yk

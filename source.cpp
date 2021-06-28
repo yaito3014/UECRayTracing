@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <numbers>
 #include <numeric>
 #include <random>
 #include <ranges>
@@ -41,11 +42,11 @@
 #endif  // YK_ENABLE_PARALLEL
 
 #ifndef YK_IMAGE_WIDTH
-#define YK_IMAGE_WIDTH 400
+#define YK_IMAGE_WIDTH 1200
 #endif  // !YK_IMAGE_WIDTH
 
 #ifndef YK_SPP
-#define YK_SPP 100
+#define YK_SPP 500
 #endif  // !YK_SPP
 
 #ifndef YK_MAX_DEPTH
@@ -56,7 +57,7 @@ namespace yk {
 
 namespace constants {
 
-constexpr double aspect_ratio = 16.0 / 9.0;
+constexpr double aspect_ratio = 3.0 / 2.0;
 constexpr std::uint32_t image_width = YK_IMAGE_WIDTH;
 constexpr std::uint32_t image_height =
     static_cast<std::uint32_t>(image_width / aspect_ratio);
@@ -70,9 +71,13 @@ using color = color3d;
 using image_t =
     std::array<color3b, constants::image_width * constants::image_height>;
 
+constexpr std::string_view time = __TIME__;
+constexpr std::uint32_t constexpr_seed =
+    std::accumulate(time.rbegin(), time.rend(), std::uint32_t(0));
+
 template <concepts::arithmetic T>
 constexpr color3b to_color3b(const color3<T>& from,
-                             std::uint32_t samples_per_pixel) {
+                             std::uint32_t samples_per_pixel) noexcept {
   auto [r, g, b] = from / samples_per_pixel;
   color3<T> color = {
       .r = math::sqrt(r),
@@ -95,29 +100,88 @@ constexpr T transform_reduce(R&& r, T init, BinOp bin_op, UnaryOp unary_op) {
                                std::ranges::end(r), init, bin_op, unary_op);
 }
 
+template <concepts::arithmetic T>
+constexpr auto random_scene() noexcept {
+  auto ground_material = lambertian(color(0.5, 0.5, 0.5));
+  auto material1 = dielectric<color::value_type>(1.5);
+  auto material2 = lambertian(color(0.4, 0.2, 0.1));
+  auto material3 = metal(color(0.7, 0.6, 0.5), 0.0);
+
+  constexpr auto rnd = [](auto x = 0) {
+    mt19937 gen_(constexpr_seed + x);
+    gen_();
+    mt19937 gen(gen_());
+    gen();
+    uniform_real_distribution<T> dist(0, 1);
+    return dist(gen);
+  };
+
+  constexpr uniform_real_distribution<T> dist(0, 1);
+  mt19937 gen(constexpr_seed);
+
+  auto list = [&]<size_t... As>(std::index_sequence<As...>) {
+    return (
+        hittable_list<T>{} | ... |
+        [&]<std::size_t A>(std::integral_constant<std::size_t, A>) {
+          return [&]<size_t... Bs>(std::index_sequence<Bs...>) {
+            return (
+                hittable_list<T>{} | ... |
+                [&]<std::size_t B>(std::integral_constant<std::size_t, B>) {
+                  constexpr pos3<T, world_tag> center(
+                      static_cast<ptrdiff_t>(A) - 10 + 0.9 * rnd(A * 20 + B),
+                      0.2,
+                      static_cast<ptrdiff_t>(B) - 10 + 0.9 * rnd(B * 20 + A));
+                  if constexpr ((center - pos3<T, world_tag>(4, 0.2, 0))
+                                    .length() > 0.9) {
+                    constexpr auto M = rnd((A + B) * 400 + A * 20 + B);
+                    if constexpr (M < 0.8) {
+                      auto albedo =
+                          color::random(gen, 0, 1) * color::random(gen, 0, 1);
+                      return sphere(center, 0.2, lambertian(albedo));
+                    } else if constexpr (M < 0.95) {
+                      auto albedo = color::random(gen, 0.5, 1);
+                      auto fuzz = uniform_real_distribution<color::value_type>(
+                          0, 0.5)(gen);
+                      return sphere(center, 0.2, metal(albedo, fuzz));
+                    } else {
+                      return sphere(center, 0.2,
+                                    dielectric<color::value_type>(1.5));
+                    }
+                    gen();
+                  } else
+                    return hittable_list<T>{};
+                }(std::integral_constant<std::size_t, Bs>{}));
+          }
+          (std::make_index_sequence<20>());
+        }(std::integral_constant<std::size_t, As>{}));
+  }
+  (std::make_index_sequence<20>());
+
+  // clang-format off
+  return list | sphere(pos3<T, world_tag>(0, -1000, 0), 1000., ground_material)
+              | sphere(pos3<T, world_tag>(0, 1, 0), 1.0, material1)
+              | sphere(pos3<T, world_tag>(-4, 1, 0), 1.0, material2)
+              | sphere(pos3<T, world_tag>(4, 1, 0), 1.0, material3);
+  // clang-format on
+}
+
 template <concepts::arithmetic T = double>
 constexpr image_t render() {
-  const raytracer<T, double> tracer = {};
-  const camera<T> cam = {};
+  const auto world = random_scene<T>();
 
-  const auto world =
-      hittable_list<T>{}
-          .add(sphere(pos3<T, world_tag>(0, 0, -1), 0.5,
-                      lambertian<color::value_type>({0.7, 0.3, 0.3})))
-          .add(sphere(pos3<T, world_tag>(0, -100.5, -1), 100.0,
-                      lambertian<color::value_type>({0.8, 0.8, 0.0})))
-          .add(sphere(pos3<T, world_tag>(-1.0, 0.0, -1.0), 0.5,
-                      metal<color::value_type>({0.8, 0.8, 0.8})))
-          .add(sphere(pos3<T, world_tag>(1.0, 0.0, -1.0), 0.5,
-                      metal<color::value_type>({0.8, 0.6, 0.2})));
+  pos3<T, world_tag> lookfrom(13, 2, 3);
+  pos3<T, world_tag> lookat(0, 0, 0);
+  vec3<T> vup(0, 1, 0);
+  auto dist_to_focus = 10.0;
+  auto aperture = 0.1;
+
+  const camera<T> cam(lookfrom, lookat, vup, 20, constants::aspect_ratio,
+                      aperture, dist_to_focus);
+  const raytracer<T, double> tracer = {};
 
   if (!std::is_constant_evaluated()) std::cout << "rendering..." << std::endl;
 
   image_t image = {};
-
-  constexpr std::string_view time = __TIME__;
-  constexpr std::uint32_t constexpr_seed =
-      std::accumulate(time.begin(), time.end(), std::uint32_t(0));
 
   for_each(
       views::cartesian_product(std::views::iota(0u, constants::image_height),
@@ -162,7 +226,7 @@ constexpr image_t render() {
               auto u = (x + dist(gen)) / constants::image_width;
               auto v = (constants::image_height - y - 1 + dist(gen)) /
                        constants::image_height;
-              return tracer.ray_color(cam.get_ray(u, v), world,
+              return tracer.ray_color(cam.get_ray(u, v, gen), world,
                                       constants::max_depth, gen);
             });
 
