@@ -4,6 +4,7 @@
 
 #include <random>
 
+#include "aabb.hpp"
 #include "concepts.hpp"
 #include "hittable.hpp"
 #include "material.hpp"
@@ -54,6 +55,20 @@ struct moving_sphere : public hittable_interface<T, moving_sphere<T, M>> {
     auto outward_normal = (rec.p - center(r.time)) / radius;
     rec.set_face_normal(r, outward_normal);
 
+    return true;
+  }
+
+  constexpr bool bouding_box_impl(T time0, T time1,
+                                  aabb<T>& output_box) const noexcept {
+    aabb<T> box0{
+        center(time0) - vec3<T>(radius, radius, radius),
+        center(time0) + vec3<T>(radius, radius, radius),
+    };
+    aabb<T> box1{
+        center(time1) - vec3<T>(radius, radius, radius),
+        center(time1) + vec3<T>(radius, radius, radius),
+    };
+    output_box = surrouding_box(box0, box1);
     return true;
   }
 

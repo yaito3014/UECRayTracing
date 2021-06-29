@@ -4,6 +4,7 @@
 
 #include <random>
 
+#include "aabb.hpp"
 #include "concepts.hpp"
 #include "hittable.hpp"
 #include "material.hpp"
@@ -42,6 +43,15 @@ struct sphere : public hittable_interface<T, sphere<T, M>> {
     auto outward_normal = (rec.p - center) / radius;
     rec.set_face_normal(r, outward_normal);
 
+    return true;
+  }
+
+  constexpr bool bouding_box_impl(T time0, T time1,
+                                  aabb<T>& output_box) const noexcept {
+    output_box = aabb<T>{
+        center - vec3<T>(radius, radius, radius),
+        center + vec3<T>(radius, radius, radius),
+    };
     return true;
   }
 

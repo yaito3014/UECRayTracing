@@ -6,6 +6,7 @@
 #include <concepts>
 #include <type_traits>
 
+#include "aabb.hpp"
 #include "concepts.hpp"
 #include "ray.hpp"
 #include "vec3.hpp"
@@ -31,6 +32,12 @@ struct hittable_interface {
   constexpr bool hit(const ray<T>& r, T t_min, T t_max,
                      hit_record<T>& rec) const noexcept {
     return static_cast<const Derived*>(this)->hit_impl(r, t_min, t_max, rec);
+  }
+
+  constexpr bool bouding_box(T time0, T time1,
+                             aabb<T>& output_box) const noexcept {
+    return static_cast<const Derived*>(this)->bouding_box_impl(time0, time1,
+                                                               output_box);
   }
 
   template <concepts::arithmetic U, std::uniform_random_bit_generator Gen>

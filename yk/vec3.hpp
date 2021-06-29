@@ -28,6 +28,13 @@ template <concepts::arithmetic T, concepts::tag Tag = default_tag>
 struct vec3 {
   T x, y, z;
 
+  constexpr friend decltype(auto) x(vec3 &v) noexcept { return v.x; }
+  constexpr friend decltype(auto) y(vec3 &v) noexcept { return v.y; }
+  constexpr friend decltype(auto) z(vec3 &v) noexcept { return v.z; }
+  constexpr friend decltype(auto) x(const vec3 &v) noexcept { return v.x; }
+  constexpr friend decltype(auto) y(const vec3 &v) noexcept { return v.y; }
+  constexpr friend decltype(auto) z(const vec3 &v) noexcept { return v.z; }
+
   template <concepts::arithmetic U>
   constexpr vec3<U, Tag> to() const noexcept {
     return {
@@ -156,16 +163,14 @@ constexpr auto operator-(const vec3<T, Tag> &lhs,
 }
 
 template <concepts::arithmetic T, concepts::arithmetic U, concepts::tag Tag>
-  requires(not std::same_as<Tag, default_tag>)
-constexpr auto operator+(const vec3<T, Tag> &lhs,
-                         const vec3<U, default_tag> &rhs) noexcept {
+requires(not std::same_as<Tag, default_tag>) constexpr auto operator+(
+    const vec3<T, Tag> &lhs, const vec3<U, default_tag> &rhs) noexcept {
   return vec3<T, Tag>{lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z};
 }
 
 template <concepts::arithmetic T, concepts::arithmetic U, concepts::tag Tag>
-  requires(not std::same_as<Tag, default_tag>)
-constexpr auto operator-(const vec3<T, Tag> &lhs,
-                         const vec3<U, default_tag> &rhs) noexcept {
+requires(not std::same_as<Tag, default_tag>) constexpr auto operator-(
+    const vec3<T, Tag> &lhs, const vec3<U, default_tag> &rhs) noexcept {
   return vec3<T, Tag>{lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z};
 }
 
@@ -245,6 +250,40 @@ constexpr vec3<T> random_in_unit_disk(Gen &gen) noexcept {
   }
   return p;
 }
+
+namespace cpo {
+namespace detail {
+
+struct x_fn {
+  template <class T>
+  constexpr decltype(auto) operator()(T &&v) const noexcept {
+    return x(std::forward<T>(v));
+  }
+};
+struct y_fn {
+  template <class T>
+  constexpr decltype(auto) operator()(T &&v) const noexcept {
+    return y(std::forward<T>(v));
+  }
+};
+struct z_fn {
+  template <class T>
+  constexpr decltype(auto) operator()(T &&v) const noexcept {
+    return z(std::forward<T>(v));
+  }
+};
+
+}  // namespace detail
+
+inline namespace fn {
+
+inline constexpr detail::x_fn x = {};
+inline constexpr detail::x_fn y = {};
+inline constexpr detail::x_fn z = {};
+
+}  // namespace fn
+
+}  // namespace cpo
 
 using vec3d = vec3<double>;
 
