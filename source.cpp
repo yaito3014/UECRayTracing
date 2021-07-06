@@ -54,6 +54,14 @@
 #define YK_MAX_DEPTH 50
 #endif  // !YK_MAX_DEPTH
 
+#ifndef YK_A_NUM
+#define YK_A_NUM 20
+#endif  // !YK_A_NUM
+
+#ifndef YK_B_NUM
+#define YK_B_NUM 20
+#endif  // !YK_B_NUM
+
 namespace yk {
 
 namespace constants {
@@ -64,6 +72,9 @@ constexpr std::uint32_t image_height =
     static_cast<std::uint32_t>(image_width / aspect_ratio);
 constexpr std::uint32_t samples_per_pixel = YK_SPP;
 constexpr std::uint32_t max_depth = YK_MAX_DEPTH;
+
+constexpr std::size_t a_num = YK_A_NUM;
+constexpr std::size_t b_num = YK_B_NUM;
 
 }  // namespace constants
 
@@ -121,46 +132,51 @@ constexpr auto random_scene() noexcept {
   mt19937 gen(constexpr_seed);
 
   auto list = [&]<size_t... As>(std::index_sequence<As...>) {
-    return (
-        hittable_list<T>{} | ... |
-        [&]<std::size_t A>(std::integral_constant<std::size_t, A>) {
-          return [&]<size_t... Bs>(std::index_sequence<Bs...>) {
-            return (
-                hittable_list<T>{} | ... |
-                [&]<std::size_t B>(std::integral_constant<std::size_t, B>) {
-                  constexpr pos3<T, world_tag> center(
-                      static_cast<ptrdiff_t>(A) - 10 + 0.9 * rnd(A * 20 + B),
-                      0.2,
-                      static_cast<ptrdiff_t>(B) - 10 + 0.9 * rnd(B * 20 + A));
-                  if constexpr ((center - pos3<T, world_tag>(4, 0.2, 0))
-                                    .length() > 0.9) {
-                    constexpr auto M = rnd((A + B) * 400 + A * 20 + B);
-                    if constexpr (M < 0.8) {
-                      auto albedo =
-                          color::random(gen, 0, 1) * color::random(gen, 0, 1);
-                      auto center2 = center + vec3<T>(0, dist(gen) / 2, 0);
-                      return moving_sphere(center, center2, 0.0, 1.0, 0.2, lambertian(albedo));
-                    } else if constexpr (M < 0.95) {
-                      auto albedo = color::random(gen, 0.5, 1);
-                      auto fuzz = uniform_real_distribution<color::value_type>(
-                          0, 0.5)(gen);
-                      return sphere(center, 0.2, metal(albedo, fuzz));
-                    } else {
-                      return sphere(center, 0.2,
-                                    dielectric<color::value_type>(1.5));
-                    }
-                    gen();
-                  } else
-                    return hittable_list<T>{};
-                }(std::integral_constant<std::size_t, Bs>{}));
-          }
-          (std::make_index_sequence<20>());
-        }(std::integral_constant<std::size_t, As>{}));
+    return (hittable_list<T>{} | ... |
+            [&]<std::size_t A>(std::integral_constant<std::size_t, A>) {
+              return [&]<size_t... Bs>(std::index_sequence<Bs...>) {
+                return (
+                    hittable_list<T>{} | ... |
+                    [&]<std::size_t B>(std::integral_constant<std::size_t, B>) {
+                      constexpr pos3<T, world_tag> center(
+                          static_cast<ptrdiff_t>(A) - constants::a_num / 2 +
+                              0.9 * rnd(A * constants::b_num + B),
+                          0.2,
+                          static_cast<ptrdiff_t>(B) - constants::b_num / 2 +
+                              0.9 * rnd(B * constants::a_num + A));
+                      if constexpr ((center - pos3<T, world_tag>(4, 0.2, 0))
+                                        .length() > 0.9) {
+                        constexpr auto M =
+                            rnd((A + B) * constants::a_num * constants::b_num +
+                                A * constants::b_num + B);
+                        if constexpr (M < 0.8) {
+                          auto albedo = color::random(gen, 0, 1) *
+                                        color::random(gen, 0, 1);
+                          auto center2 = center + vec3<T>(0, dist(gen) / 2, 0);
+                          return moving_sphere(center, center2, 0.0, 1.0, 0.2,
+                                               lambertian(albedo));
+                        } else if constexpr (M < 0.95) {
+                          auto albedo = color::random(gen, 0.5, 1);
+                          auto fuzz =
+                              uniform_real_distribution<color::value_type>(
+                                  0, 0.5)(gen);
+                          return sphere(center, 0.2, metal(albedo, fuzz));
+                        } else {
+                          return sphere(center, 0.2,
+                                        dielectric<color::value_type>(1.5));
+                        }
+                        gen();
+                      } else
+                        return hittable_list<T>{};
+                    }(std::integral_constant<std::size_t, Bs>{}));
+              }
+              (std::make_index_sequence<constants::b_num>());
+            }(std::integral_constant<std::size_t, As>{}));
   }
-  (std::make_index_sequence<20>());
+  (std::make_index_sequence<constants::a_num>());
 
   // clang-format off
-  return list | sphere(pos3<T, world_tag>(0, -1000, 0), 1000., ground_material)
+  return std::move(list) | sphere(pos3<T, world_tag>(0, -1000, 0), 1000., ground_material)
               | sphere(pos3<T, world_tag>(0, 1, 0), 1.0, material1)
               | sphere(pos3<T, world_tag>(-4, 1, 0), 1.0, material2)
               | sphere(pos3<T, world_tag>(4, 1, 0), 1.0, material3);

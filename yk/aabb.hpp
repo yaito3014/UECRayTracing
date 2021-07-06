@@ -46,9 +46,9 @@ aabb<T> surrounding_box(const aabb<T>& box0, const aabb<T>& box1) {
           },
       .max =
           {
-              std::min(box0.max.x, box1.max.x),
-              std::min(box0.max.y, box1.max.y),
-              std::min(box0.max.z, box1.max.z),
+              std::max(box0.max.x, box1.max.x),
+              std::max(box0.max.y, box1.max.y),
+              std::max(box0.max.z, box1.max.z),
           },
   };
 }

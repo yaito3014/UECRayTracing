@@ -7,7 +7,9 @@
 #include <type_traits>
 
 #include "aabb.hpp"
+#include "color.hpp"
 #include "concepts.hpp"
+#include "config.hpp"
 #include "ray.hpp"
 #include "vec3.hpp"
 

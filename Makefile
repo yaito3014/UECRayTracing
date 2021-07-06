@@ -1,4 +1,4 @@
-CXX = g++
+CXX ?= g++
 CXXFLAGS += -std=c++20
 COMMON = $(CXX) $(CXXFLAGS) source.cpp $(LDFLAGS)
 

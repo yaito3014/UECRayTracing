@@ -82,16 +82,16 @@ struct hittable_list : public hittable_interface<T, hittable_list<T, Hs...>> {
 template <concepts::arithmetic T, concepts::hittable<T>... Hs, class H>
 requires concepts::hittable<std::remove_cvref_t<H>, T>
 [[nodiscard]] constexpr hittable_list<T, Hs..., std::remove_cvref_t<H>>
-operator|(const hittable_list<T, Hs...>& lhs, H&& rhs) noexcept {
-  return {std::tuple_cat(lhs.objects, std::make_tuple(std::forward<H>(rhs)))};
-}
-
-template <concepts::arithmetic T, concepts::hittable<T>... Hs, class H>
-requires concepts::hittable<std::remove_cvref_t<H>, T>
-[[nodiscard]] constexpr hittable_list<T, Hs..., std::remove_cvref_t<H>>
 operator|(hittable_list<T, Hs...>&& lhs, H&& rhs) noexcept {
   return {std::tuple_cat(std::move(lhs.objects),
                          std::make_tuple(std::forward<H>(rhs)))};
+}
+
+template <concepts::arithmetic T, concepts::hittable<T>... H1s,
+          concepts::hittable<T>... H2s>
+[[nodiscard]] constexpr hittable_list<T, H1s..., H2s...> operator|(
+    hittable_list<T, H1s...>&& lhs, hittable_list<T, H2s...>&& rhs) noexcept {
+  return {std::tuple_cat(std::move(lhs.objects), std::move(rhs.objects))};
 }
 
 }  // namespace yk
